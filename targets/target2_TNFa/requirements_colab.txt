@@ -1,0 +1,3 @@
+# Colab 已預裝 torch；只需這兩個
+transformers>=4.30
+accelerate

@@ -1,0 +1,11 @@
+{
+  "job_id": "job_t2_tnfa_calibration_001",
+  "stage": "evaluation_calibration",
+  "target_id": "target2_TNFa",
+  "molecule_type": "VHH",
+  "submitted_by": "Bio_Lead_69966012",
+  "spec_dir_relpath": "targets/target2_TNFa",
+  "run_stability_variants": true,
+  "compare_pdbs": ["5M2J", "1TNF", "2AZ5"],
+  "notes": "Full Target 2 TNF-alpha ESMFold + ipSAE + pDockQ calibration (monomer vs trimer + 9 pos/neg controls + 72 variant stability + crystal superposition)"
+}
