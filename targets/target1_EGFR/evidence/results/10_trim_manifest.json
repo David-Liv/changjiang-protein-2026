@@ -1,0 +1,94 @@
+[
+ {
+  "name": "v1_1YY9_fullECD",
+  "parent": "1YY9",
+  "resolution": 2.61,
+  "range_mature": [
+   2,
+   614
+  ],
+  "range_uniprot": [
+   26,
+   638
+  ],
+  "desc": "\u4fdd\u5b88\u7248\uff1a\u5b8c\u6574 ECD\u3002\u4fdd\u7559\u5168\u90e8\u7d50\u69cb\u57df\u8108\u7d61\uff0c\u7121\u4efb\u4f55\u5207\u9762\u5047\u8c61\u3002613 \u6b98\u57fa\uff0cGPU \u6210\u672c\u9ad8\u3002",
+  "modification": null,
+  "n_res": 613,
+  "n_atoms": 4653,
+  "sha256": "53368df613f7ebbae49835c310df69bd5c3179576a5e2afca8cf09c597739ebf",
+  "hot_present": true,
+  "hot2_present": true,
+  "cut_disulfides": [],
+  "new_hydrophobic_A2": 0,
+  "hot_to_cut_min_A": null
+ },
+ {
+  "name": "v2_1YY9_domIII",
+  "parent": "1YY9",
+  "resolution": 2.61,
+  "range_mature": [
+   310,
+   480
+  ],
+  "range_uniprot": [
+   334,
+   504
+  ],
+  "desc": "\u4e3b\u529b\u7248\uff1adomain III \u672c\u9ad4\uff0c\u89e3\u6790\u5ea6\u6700\u4f73\uff082.61 \u00c5\uff09\u3002\u6ce8\u610f\u6210\u719f 474 \u5728 1YY9 \u70ba Lys\uff0c\u8207 P00533-1 \u7684 Ser \u4e0d\u7b26\u3002",
+  "modification": null,
+  "n_res": 171,
+  "n_atoms": 1329,
+  "sha256": "94d5845daced45f61d99b1048744d27d7b784b0c1b9f34248704f783e481dd0a",
+  "hot_present": true,
+  "hot2_present": true,
+  "cut_disulfides": [],
+  "new_hydrophobic_A2": 210.2,
+  "hot_to_cut_min_A": 11.8
+ },
+ {
+  "name": "v3_1YY9_domIII_K474S",
+  "parent": "1YY9",
+  "resolution": 2.61,
+  "range_mature": [
+   310,
+   480
+  ],
+  "range_uniprot": [
+   334,
+   504
+  ],
+  "desc": "\u4fee\u5fa9\u7248\uff1a\u5728 v2 \u4e0a\u628a\u6210\u719f 474 \u7531 Lys \u622a\u77ed\u70ba Ser \u4ee5\u7b26\u5408 P00533-1\u3002\u5074\u93c8\u4ee5\u7406\u60f3\u5e7e\u4f55\u91cd\u5efa\u3002",
+  "modification": "\u6210\u719f 474 Lys\u2192Ser\uff08\u4fdd\u7559 N/CA/C/O/CB\uff0cOG \u4ee5 CB\u2192CG \u65b9\u5411 1.42 \u00c5 \u7f6e\u653e\uff09",
+  "n_res": 171,
+  "n_atoms": 1326,
+  "sha256": "9c0375e8d9d191ed4351e6559d18070165a6de0bfc8cc05a447044f3ffaf4e13",
+  "hot_present": true,
+  "hot2_present": true,
+  "cut_disulfides": [],
+  "new_hydrophobic_A2": 222.2,
+  "hot_to_cut_min_A": 11.8
+ },
+ {
+  "name": "v4_6ARU_domIII",
+  "parent": "6ARU",
+  "resolution": 3.2,
+  "range_mature": [
+   310,
+   480
+  ],
+  "range_uniprot": [
+   334,
+   504
+  ],
+  "desc": "\u4ea4\u53c9\u7248\uff1a\u540c\u7a97\u53e3\u53d6\u81ea 6ARU\u3002\u8a72\u7a97\u53e3\u5167 6ARU \u8207 P00533-1 \u5e8f\u5217\u5b8c\u5168\u4e00\u81f4\uff08\u96f6\u885d\u7a81\uff09\uff0c\u4ee3\u50f9\u662f 3.20 \u00c5\u3002",
+  "modification": null,
+  "n_res": 171,
+  "n_atoms": 1326,
+  "sha256": "c5bb20bf7bd3e6949ce49e62622a459716d2ea7298638b045957a7d9a31df735",
+  "hot_present": true,
+  "hot2_present": true,
+  "cut_disulfides": [],
+  "new_hydrophobic_A2": 198.3,
+  "hot_to_cut_min_A": 11.4
+ }
+]

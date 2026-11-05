@@ -1,0 +1,372 @@
+{
+ "Face A2 (Pole N \u71b1\u9ede)": [
+  {
+   "pdb": "6ARU",
+   "ligand": "cetuximab Fab",
+   "n": 6,
+   "sasa_free": 441.0,
+   "bsa": 294.6,
+   "occl": 0,
+   "occl_pct": 0.0
+  },
+  {
+   "pdb": "1YY9",
+   "ligand": "cetuximab Fab",
+   "n": 6,
+   "sasa_free": 445.9,
+   "bsa": 305.8,
+   "occl": 0,
+   "occl_pct": 0.0
+  },
+  {
+   "pdb": "4KRP",
+   "ligand": "cetuximab Fab",
+   "n": 6,
+   "sasa_free": 421.0,
+   "bsa": 299.2,
+   "occl": 0,
+   "occl_pct": 0.0
+  },
+  {
+   "pdb": "4KRO",
+   "ligand": "cetuximab Fab",
+   "n": 6,
+   "sasa_free": 401.6,
+   "bsa": 282.4,
+   "occl": 0,
+   "occl_pct": 0.0
+  },
+  {
+   "pdb": "4KRL",
+   "ligand": "VHH 7D12",
+   "n": 6,
+   "sasa_free": 386.7,
+   "bsa": 39.5,
+   "occl": 0,
+   "occl_pct": 0.0
+  },
+  {
+   "pdb": "4KRP",
+   "ligand": "VHH 9G8",
+   "n": 6,
+   "sasa_free": 421.0,
+   "bsa": 0,
+   "occl": 0,
+   "occl_pct": 0.0
+  },
+  {
+   "pdb": "4KRO",
+   "ligand": "VHH EgA1",
+   "n": 6,
+   "sasa_free": 401.6,
+   "bsa": 0,
+   "occl": 0,
+   "occl_pct": 0.0
+  },
+  {
+   "pdb": "1IVO",
+   "ligand": "EGF",
+   "n": 6,
+   "sasa_free": 427.4,
+   "bsa": 252.7,
+   "occl": 0,
+   "occl_pct": 0.0
+  }
+ ],
+ "cetuximab \u5168\u8db3\u8de1(23)": [
+  {
+   "pdb": "6ARU",
+   "ligand": "cetuximab Fab",
+   "n": 23,
+   "sasa_free": 1577.7,
+   "bsa": 858.6,
+   "occl": 0,
+   "occl_pct": 0.0
+  },
+  {
+   "pdb": "1YY9",
+   "ligand": "cetuximab Fab",
+   "n": 23,
+   "sasa_free": 1600.3,
+   "bsa": 877.1,
+   "occl": 0,
+   "occl_pct": 0.0
+  },
+  {
+   "pdb": "4KRP",
+   "ligand": "cetuximab Fab",
+   "n": 23,
+   "sasa_free": 1520.3,
+   "bsa": 872.3,
+   "occl": 0,
+   "occl_pct": 0.0
+  },
+  {
+   "pdb": "4KRO",
+   "ligand": "cetuximab Fab",
+   "n": 23,
+   "sasa_free": 1544.2,
+   "bsa": 853.8,
+   "occl": 0,
+   "occl_pct": 0.0
+  },
+  {
+   "pdb": "4KRL",
+   "ligand": "VHH 7D12",
+   "n": 23,
+   "sasa_free": 1355.7,
+   "bsa": 320.1,
+   "occl": 3.2,
+   "occl_pct": 0.2
+  },
+  {
+   "pdb": "4KRP",
+   "ligand": "VHH 9G8",
+   "n": 23,
+   "sasa_free": 1520.3,
+   "bsa": 0,
+   "occl": 0,
+   "occl_pct": 0.0
+  },
+  {
+   "pdb": "4KRO",
+   "ligand": "VHH EgA1",
+   "n": 23,
+   "sasa_free": 1544.2,
+   "bsa": 0,
+   "occl": 0,
+   "occl_pct": 0.0
+  },
+  {
+   "pdb": "1IVO",
+   "ligand": "EGF",
+   "n": 23,
+   "sasa_free": 1601.4,
+   "bsa": 469.7,
+   "occl": 89.1,
+   "occl_pct": 5.6
+  }
+ ],
+ "Face A1 (7D12)": [
+  {
+   "pdb": "6ARU",
+   "ligand": "cetuximab Fab",
+   "n": 12,
+   "sasa_free": 1014.1,
+   "bsa": 253.5,
+   "occl": 81.0,
+   "occl_pct": 8.0
+  },
+  {
+   "pdb": "1YY9",
+   "ligand": "cetuximab Fab",
+   "n": 12,
+   "sasa_free": 1018.7,
+   "bsa": 256.8,
+   "occl": 78.6,
+   "occl_pct": 7.7
+  },
+  {
+   "pdb": "4KRP",
+   "ligand": "cetuximab Fab",
+   "n": 12,
+   "sasa_free": 1044.3,
+   "bsa": 259.9,
+   "occl": 93.9,
+   "occl_pct": 9.0
+  },
+  {
+   "pdb": "4KRO",
+   "ligand": "cetuximab Fab",
+   "n": 12,
+   "sasa_free": 977.6,
+   "bsa": 261.0,
+   "occl": 76.0,
+   "occl_pct": 7.8
+  },
+  {
+   "pdb": "4KRL",
+   "ligand": "VHH 7D12",
+   "n": 12,
+   "sasa_free": 1075.5,
+   "bsa": 613.0,
+   "occl": 98.7,
+   "occl_pct": 9.2
+  },
+  {
+   "pdb": "4KRP",
+   "ligand": "VHH 9G8",
+   "n": 12,
+   "sasa_free": 1044.3,
+   "bsa": 0,
+   "occl": 93.9,
+   "occl_pct": 9.0
+  },
+  {
+   "pdb": "4KRO",
+   "ligand": "VHH EgA1",
+   "n": 12,
+   "sasa_free": 977.6,
+   "bsa": 0,
+   "occl": 76.0,
+   "occl_pct": 7.8
+  },
+  {
+   "pdb": "1IVO",
+   "ligand": "EGF",
+   "n": 12,
+   "sasa_free": 1028.2,
+   "bsa": 488.8,
+   "occl": 76.5,
+   "occl_pct": 7.4
+  }
+ ],
+ "Face B (9G8)": [
+  {
+   "pdb": "6ARU",
+   "ligand": "cetuximab Fab",
+   "n": 23,
+   "sasa_free": 1828.2,
+   "bsa": 0,
+   "occl": 0,
+   "occl_pct": 0.0
+  },
+  {
+   "pdb": "1YY9",
+   "ligand": "cetuximab Fab",
+   "n": 23,
+   "sasa_free": 1843.8,
+   "bsa": 0,
+   "occl": 0,
+   "occl_pct": 0.0
+  },
+  {
+   "pdb": "4KRP",
+   "ligand": "cetuximab Fab",
+   "n": 23,
+   "sasa_free": 1611.4,
+   "bsa": 0,
+   "occl": 0,
+   "occl_pct": 0.0
+  },
+  {
+   "pdb": "4KRO",
+   "ligand": "cetuximab Fab",
+   "n": 23,
+   "sasa_free": 1582.3,
+   "bsa": 0,
+   "occl": 0,
+   "occl_pct": 0.0
+  },
+  {
+   "pdb": "4KRL",
+   "ligand": "VHH 7D12",
+   "n": 20,
+   "sasa_free": 1363.7,
+   "bsa": 0,
+   "occl": 0,
+   "occl_pct": 0.0
+  },
+  {
+   "pdb": "4KRP",
+   "ligand": "VHH 9G8",
+   "n": 23,
+   "sasa_free": 1611.4,
+   "bsa": 775.2,
+   "occl": 0,
+   "occl_pct": 0.0
+  },
+  {
+   "pdb": "4KRO",
+   "ligand": "VHH EgA1",
+   "n": 23,
+   "sasa_free": 1582.3,
+   "bsa": 686.3,
+   "occl": 0,
+   "occl_pct": 0.0
+  },
+  {
+   "pdb": "1IVO",
+   "ligand": "EGF",
+   "n": 23,
+   "sasa_free": 1491.0,
+   "bsa": 0,
+   "occl": 4.8,
+   "occl_pct": 0.3
+  }
+ ],
+ "Face B (EgA1)": [
+  {
+   "pdb": "6ARU",
+   "ligand": "cetuximab Fab",
+   "n": 21,
+   "sasa_free": 1482.5,
+   "bsa": 0,
+   "occl": 0,
+   "occl_pct": 0.0
+  },
+  {
+   "pdb": "1YY9",
+   "ligand": "cetuximab Fab",
+   "n": 21,
+   "sasa_free": 1526.9,
+   "bsa": 0,
+   "occl": 0,
+   "occl_pct": 0.0
+  },
+  {
+   "pdb": "4KRP",
+   "ligand": "cetuximab Fab",
+   "n": 21,
+   "sasa_free": 1409.3,
+   "bsa": 0,
+   "occl": 0,
+   "occl_pct": 0.0
+  },
+  {
+   "pdb": "4KRO",
+   "ligand": "cetuximab Fab",
+   "n": 21,
+   "sasa_free": 1376.7,
+   "bsa": 0,
+   "occl": 0,
+   "occl_pct": 0.0
+  },
+  {
+   "pdb": "4KRL",
+   "ligand": "VHH 7D12",
+   "n": 19,
+   "sasa_free": 1322.2,
+   "bsa": 0,
+   "occl": 0,
+   "occl_pct": 0.0
+  },
+  {
+   "pdb": "4KRP",
+   "ligand": "VHH 9G8",
+   "n": 21,
+   "sasa_free": 1409.3,
+   "bsa": 702.4,
+   "occl": 0,
+   "occl_pct": 0.0
+  },
+  {
+   "pdb": "4KRO",
+   "ligand": "VHH EgA1",
+   "n": 21,
+   "sasa_free": 1376.7,
+   "bsa": 692.2,
+   "occl": 0,
+   "occl_pct": 0.0
+  },
+  {
+   "pdb": "1IVO",
+   "ligand": "EGF",
+   "n": 21,
+   "sasa_free": 1384.9,
+   "bsa": 0,
+   "occl": 4.8,
+   "occl_pct": 0.3
+  }
+ ]
+}

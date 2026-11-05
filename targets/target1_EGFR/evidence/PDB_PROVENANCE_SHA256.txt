@@ -1,0 +1,23 @@
+Raw PDB provenance and SHA-256
+Prepared: 2026-11-01
+
+6ARU.pdb
+Source: https://files.rcsb.org/download/6ARU.pdb
+Bytes: 1,372,383
+SHA-256: 6009474a03942ad6d6b01f3145cb6f102f549290001c240b7ae1fcc0e071d5c0
+Handling: saved directly from the RCSB download response; no trimming, rewriting, or ChimeraX export was applied.
+
+1YY9.pdb
+Source: https://files.rcsb.org/download/1YY9.pdb
+Bytes: 752,571
+SHA-256: e574b33a287c4100ff35f8346a6eadba1486d4a90464f4344f3189115f6d5fa8
+Handling: saved directly from the RCSB download response; no trimming, rewriting, or ChimeraX export was applied.
+
+Cross-checks
+- 6ARU.pdb REMARK 200 identifies the structure determination method as molecular replacement and the starting model as PDB entry 1YY9.
+- RCSB lists the 6ARU resolution as 3.20 Å and the 1YY9 resolution as 2.60 Å. Thus 1YY9 is higher resolution by 0.60 Å.
+- RCSB identifies 1YY9 as the EGFR extracellular domain in complex with the cetuximab Fab fragment; 6ARU is the cetuximab Fab mutant in complex with the EGFR extracellular domain.
+
+RCSB entry records:
+https://www.rcsb.org/structure/6ARU
+https://www.rcsb.org/structure/1YY9

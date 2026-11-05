@@ -1,0 +1,400 @@
+{
+ "sequons": [
+  {
+   "mature": 32,
+   "uniprot": 56,
+   "motif": "NNC",
+   "type": "non-canonical N-X-C"
+  },
+  {
+   "mature": 104,
+   "uniprot": 128,
+   "motif": "NKT",
+   "type": "canonical N-X-S/T"
+  },
+  {
+   "mature": 151,
+   "uniprot": 175,
+   "motif": "NMS",
+   "type": "canonical N-X-S/T"
+  },
+  {
+   "mature": 172,
+   "uniprot": 196,
+   "motif": "NGS",
+   "type": "canonical N-X-S/T"
+  },
+  {
+   "mature": 210,
+   "uniprot": 234,
+   "motif": "NQC",
+   "type": "non-canonical N-X-C"
+  },
+  {
+   "mature": 328,
+   "uniprot": 352,
+   "motif": "NAT",
+   "type": "canonical N-X-S/T"
+  },
+  {
+   "mature": 337,
+   "uniprot": 361,
+   "motif": "NCT",
+   "type": "canonical N-X-S/T"
+  },
+  {
+   "mature": 389,
+   "uniprot": 413,
+   "motif": "NRT",
+   "type": "canonical N-X-S/T"
+  },
+  {
+   "mature": 420,
+   "uniprot": 444,
+   "motif": "NIT",
+   "type": "canonical N-X-S/T"
+  },
+  {
+   "mature": 444,
+   "uniprot": 468,
+   "motif": "NLC",
+   "type": "non-canonical N-X-C"
+  },
+  {
+   "mature": 473,
+   "uniprot": 497,
+   "motif": "NSC",
+   "type": "non-canonical N-X-C"
+  },
+  {
+   "mature": 504,
+   "uniprot": 528,
+   "motif": "NVS",
+   "type": "canonical N-X-S/T"
+  },
+  {
+   "mature": 544,
+   "uniprot": 568,
+   "motif": "NIT",
+   "type": "canonical N-X-S/T"
+  },
+  {
+   "mature": 579,
+   "uniprot": 603,
+   "motif": "NNT",
+   "type": "canonical N-X-S/T"
+  },
+  {
+   "mature": 599,
+   "uniprot": 623,
+   "motif": "NCT",
+   "type": "canonical N-X-S/T"
+  }
+ ],
+ "per_structure": {
+  "1YY9": [
+   {
+    "mature": 32,
+    "uniprot": 56,
+    "motif": "NNC",
+    "type": "non-canonical N-X-C",
+    "status": "\u5df2\u5efa\u6a21\u91a3\u93c8",
+    "d_CA": 53.8,
+    "d_glycan": 52.7,
+    "n_sugar_atoms": 14
+   },
+   {
+    "mature": 104,
+    "uniprot": 128,
+    "motif": "NKT",
+    "type": "canonical N-X-S/T",
+    "status": "sequon \u4f46\u7121\u91a3\u93c8\u5ea7\u6a19",
+    "d_CA": 67.1,
+    "d_glycan": null,
+    "n_sugar_atoms": 0
+   },
+   {
+    "mature": 151,
+    "uniprot": 175,
+    "motif": "NMS",
+    "type": "canonical N-X-S/T",
+    "status": "sequon \u4f46\u7121\u91a3\u93c8\u5ea7\u6a19",
+    "d_CA": 66.0,
+    "d_glycan": null,
+    "n_sugar_atoms": 0
+   },
+   {
+    "mature": 172,
+    "uniprot": 196,
+    "motif": "NGS",
+    "type": "canonical N-X-S/T",
+    "status": "sequon \u4f46\u7121\u91a3\u93c8\u5ea7\u6a19",
+    "d_CA": 83.2,
+    "d_glycan": null,
+    "n_sugar_atoms": 0
+   },
+   {
+    "mature": 210,
+    "uniprot": 234,
+    "motif": "NQC",
+    "type": "non-canonical N-X-C",
+    "status": "sequon \u4f46\u7121\u91a3\u93c8\u5ea7\u6a19",
+    "d_CA": 68.8,
+    "d_glycan": null,
+    "n_sugar_atoms": 0
+   },
+   {
+    "mature": 328,
+    "uniprot": 352,
+    "motif": "NAT",
+    "type": "canonical N-X-S/T",
+    "status": "\u5df2\u5efa\u6a21\u91a3\u93c8",
+    "d_CA": 8.6,
+    "d_glycan": 7.8,
+    "n_sugar_atoms": 105
+   },
+   {
+    "mature": 337,
+    "uniprot": 361,
+    "motif": "NCT",
+    "type": "canonical N-X-S/T",
+    "status": "\u5df2\u5efa\u6a21\u91a3\u93c8",
+    "d_CA": 18.9,
+    "d_glycan": 21.9,
+    "n_sugar_atoms": 28
+   },
+   {
+    "mature": 389,
+    "uniprot": 413,
+    "motif": "NRT",
+    "type": "canonical N-X-S/T",
+    "status": "\u5df2\u5efa\u6a21\u91a3\u93c8",
+    "d_CA": 11.8,
+    "d_glycan": 13.5,
+    "n_sugar_atoms": 14
+   },
+   {
+    "mature": 420,
+    "uniprot": 444,
+    "motif": "NIT",
+    "type": "canonical N-X-S/T",
+    "status": "\u5df2\u5efa\u6a21\u91a3\u93c8",
+    "d_CA": 5.7,
+    "d_glycan": 7.2,
+    "n_sugar_atoms": 28
+   },
+   {
+    "mature": 444,
+    "uniprot": 468,
+    "motif": "NLC",
+    "type": "non-canonical N-X-C",
+    "status": "sequon \u4f46\u7121\u91a3\u93c8\u5ea7\u6a19",
+    "d_CA": 2.4,
+    "d_glycan": null,
+    "n_sugar_atoms": 0
+   },
+   {
+    "mature": 473,
+    "uniprot": 497,
+    "motif": "NSC",
+    "type": "non-canonical N-X-C",
+    "status": "sequon \u4f46\u7121\u91a3\u93c8\u5ea7\u6a19",
+    "d_CA": null,
+    "d_glycan": null,
+    "n_sugar_atoms": 0
+   },
+   {
+    "mature": 504,
+    "uniprot": 528,
+    "motif": "NVS",
+    "type": "canonical N-X-S/T",
+    "status": "\u5df2\u5efa\u6a21\u91a3\u93c8",
+    "d_CA": 25.7,
+    "d_glycan": 20.9,
+    "n_sugar_atoms": 14
+   },
+   {
+    "mature": 544,
+    "uniprot": 568,
+    "motif": "NIT",
+    "type": "canonical N-X-S/T",
+    "status": "\u5df2\u5efa\u6a21\u91a3\u93c8",
+    "d_CA": 45.4,
+    "d_glycan": 43.9,
+    "n_sugar_atoms": 14
+   },
+   {
+    "mature": 579,
+    "uniprot": 603,
+    "motif": "NNT",
+    "type": "canonical N-X-S/T",
+    "status": "\u5df2\u5efa\u6a21\u91a3\u93c8",
+    "d_CA": 61.5,
+    "d_glycan": 64.7,
+    "n_sugar_atoms": 28
+   },
+   {
+    "mature": 599,
+    "uniprot": 623,
+    "motif": "NCT",
+    "type": "canonical N-X-S/T",
+    "status": "sequon \u4f46\u7121\u91a3\u93c8\u5ea7\u6a19",
+    "d_CA": 69.4,
+    "d_glycan": null,
+    "n_sugar_atoms": 0
+   }
+  ],
+  "6ARU": [
+   {
+    "mature": 32,
+    "uniprot": 56,
+    "motif": "NNC",
+    "type": "non-canonical N-X-C",
+    "status": "sequon \u4f46\u7121\u91a3\u93c8\u5ea7\u6a19",
+    "d_CA": 53.4,
+    "d_glycan": null,
+    "n_sugar_atoms": 0
+   },
+   {
+    "mature": 104,
+    "uniprot": 128,
+    "motif": "NKT",
+    "type": "canonical N-X-S/T",
+    "status": "sequon \u4f46\u7121\u91a3\u93c8\u5ea7\u6a19",
+    "d_CA": 67.6,
+    "d_glycan": null,
+    "n_sugar_atoms": 0
+   },
+   {
+    "mature": 151,
+    "uniprot": 175,
+    "motif": "NMS",
+    "type": "canonical N-X-S/T",
+    "status": "sequon \u4f46\u7121\u91a3\u93c8\u5ea7\u6a19",
+    "d_CA": 67.6,
+    "d_glycan": null,
+    "n_sugar_atoms": 0
+   },
+   {
+    "mature": 172,
+    "uniprot": 196,
+    "motif": "NGS",
+    "type": "canonical N-X-S/T",
+    "status": "sequon \u4f46\u7121\u91a3\u93c8\u5ea7\u6a19",
+    "d_CA": 83.7,
+    "d_glycan": null,
+    "n_sugar_atoms": 0
+   },
+   {
+    "mature": 210,
+    "uniprot": 234,
+    "motif": "NQC",
+    "type": "non-canonical N-X-C",
+    "status": "sequon \u4f46\u7121\u91a3\u93c8\u5ea7\u6a19",
+    "d_CA": 69.2,
+    "d_glycan": null,
+    "n_sugar_atoms": 0
+   },
+   {
+    "mature": 328,
+    "uniprot": 352,
+    "motif": "NAT",
+    "type": "canonical N-X-S/T",
+    "status": "\u5df2\u5efa\u6a21\u91a3\u93c8",
+    "d_CA": 8.7,
+    "d_glycan": 8.0,
+    "n_sugar_atoms": 94
+   },
+   {
+    "mature": 337,
+    "uniprot": 361,
+    "motif": "NCT",
+    "type": "canonical N-X-S/T",
+    "status": "\u5df2\u5efa\u6a21\u91a3\u93c8",
+    "d_CA": 19.2,
+    "d_glycan": 13.3,
+    "n_sugar_atoms": 28
+   },
+   {
+    "mature": 389,
+    "uniprot": 413,
+    "motif": "NRT",
+    "type": "canonical N-X-S/T",
+    "status": "\u5df2\u5efa\u6a21\u91a3\u93c8",
+    "d_CA": 11.3,
+    "d_glycan": 13.3,
+    "n_sugar_atoms": 28
+   },
+   {
+    "mature": 420,
+    "uniprot": 444,
+    "motif": "NIT",
+    "type": "canonical N-X-S/T",
+    "status": "\u5df2\u5efa\u6a21\u91a3\u93c8",
+    "d_CA": 4.9,
+    "d_glycan": 7.1,
+    "n_sugar_atoms": 28
+   },
+   {
+    "mature": 444,
+    "uniprot": 468,
+    "motif": "NLC",
+    "type": "non-canonical N-X-C",
+    "status": "sequon \u4f46\u7121\u91a3\u93c8\u5ea7\u6a19",
+    "d_CA": 2.4,
+    "d_glycan": null,
+    "n_sugar_atoms": 0
+   },
+   {
+    "mature": 473,
+    "uniprot": 497,
+    "motif": "NSC",
+    "type": "non-canonical N-X-C",
+    "status": "sequon \u4f46\u7121\u91a3\u93c8\u5ea7\u6a19",
+    "d_CA": null,
+    "d_glycan": null,
+    "n_sugar_atoms": 0
+   },
+   {
+    "mature": 504,
+    "uniprot": 528,
+    "motif": "NVS",
+    "type": "canonical N-X-S/T",
+    "status": "sequon \u4f46\u7121\u91a3\u93c8\u5ea7\u6a19",
+    "d_CA": 25.3,
+    "d_glycan": null,
+    "n_sugar_atoms": 0
+   },
+   {
+    "mature": 544,
+    "uniprot": 568,
+    "motif": "NIT",
+    "type": "canonical N-X-S/T",
+    "status": "sequon \u4f46\u7121\u91a3\u93c8\u5ea7\u6a19",
+    "d_CA": 44.8,
+    "d_glycan": null,
+    "n_sugar_atoms": 0
+   },
+   {
+    "mature": 579,
+    "uniprot": 603,
+    "motif": "NNT",
+    "type": "canonical N-X-S/T",
+    "status": "sequon \u4f46\u7121\u91a3\u93c8\u5ea7\u6a19",
+    "d_CA": 62.2,
+    "d_glycan": null,
+    "n_sugar_atoms": 0
+   },
+   {
+    "mature": 599,
+    "uniprot": 623,
+    "motif": "NCT",
+    "type": "canonical N-X-S/T",
+    "status": "sequon \u4f46\u7121\u91a3\u93c8\u5ea7\u6a19",
+    "d_CA": 70.4,
+    "d_glycan": null,
+    "n_sugar_atoms": 0
+   }
+  ]
+ }
+}

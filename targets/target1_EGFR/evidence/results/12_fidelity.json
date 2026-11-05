@@ -1,0 +1,115 @@
+{
+ "6ARU_A": {
+  "n": 609,
+  "range": [
+   4,
+   612
+  ],
+  "mismatches": [
+   {
+    "mature": 516,
+    "uniprot": 540,
+    "pdb": "K",
+    "p00533": "N"
+   },
+   {
+    "mature": 610,
+    "uniprot": 634,
+    "pdb": "R",
+    "p00533": "E"
+   }
+  ]
+ },
+ "1YY9_A": {
+  "n": 613,
+  "range": [
+   2,
+   614
+  ],
+  "mismatches": [
+   {
+    "mature": 474,
+    "uniprot": 498,
+    "pdb": "K",
+    "p00533": "S"
+   },
+   {
+    "mature": 516,
+    "uniprot": 540,
+    "pdb": "K",
+    "p00533": "N"
+   },
+   {
+    "mature": 610,
+    "uniprot": 634,
+    "pdb": "R",
+    "p00533": "E"
+   }
+  ]
+ },
+ "4KRL_A": {
+  "n": 205,
+  "range": [
+   307,
+   511
+  ],
+  "mismatches": [
+   {
+    "mature": 307,
+    "uniprot": 331,
+    "pdb": "L",
+    "p00533": "G"
+   },
+   {
+    "mature": 308,
+    "uniprot": 332,
+    "pdb": "E",
+    "p00533": "P"
+   },
+   {
+    "mature": 309,
+    "uniprot": 333,
+    "pdb": "E",
+    "p00533": "C"
+   },
+   {
+    "mature": 310,
+    "uniprot": 334,
+    "pdb": "K",
+    "p00533": "R"
+   }
+  ]
+ },
+ "4KRP_A": {
+  "n": 534,
+  "range": [
+   4,
+   612
+  ],
+  "mismatches": []
+ },
+ "4KRO_A": {
+  "n": 570,
+  "range": [
+   4,
+   604
+  ],
+  "mismatches": []
+ },
+ "1IVO_A": {
+  "n": 511,
+  "range": [
+   2,
+   512
+  ],
+  "mismatches": []
+ },
+ "1IVO_B": {
+  "n": 510,
+  "range": [
+   3,
+   512
+  ],
+  "mismatches": []
+ }
+}

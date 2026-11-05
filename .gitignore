@@ -1,0 +1,28 @@
+# Security guardrail: NEVER commit generated sequences, candidate tables, or run outputs to public GitHub!
+runs/
+jobs/pending/
+jobs/running/
+jobs/completed/
+jobs/failed/
+registry/
+*candidates*.csv
+*evaluations*.csv
+*submission*.csv
+*design_registry.csv
+*final_design_stats.csv
+*mpnn_design_stats.csv
+*.zip
+*.tar.gz
+
+# Python / OS / Scratch
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.scratch/
+.DS_Store
+Thumbs.db
+
+# Obsolete / superseded target files
+targets/target1_EGFR/_superseded/

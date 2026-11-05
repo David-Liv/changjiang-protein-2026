@@ -1,0 +1,410 @@
+{
+ "1YY9": {
+  "total_bsa": 866.6,
+  "total_glycan_occl": 0,
+  "residues": [
+   {
+    "mature": 468,
+    "uniprot": 492,
+    "aa": "S",
+    "sasa_free": 89.1,
+    "bsa_fab": 86.9,
+    "occl_glycan": 0,
+    "hydrophobic": false
+   },
+   {
+    "mature": 443,
+    "uniprot": 467,
+    "aa": "K",
+    "sasa_free": 142.5,
+    "bsa_fab": 80.6,
+    "occl_glycan": 0,
+    "hydrophobic": false
+   },
+   {
+    "mature": 467,
+    "uniprot": 491,
+    "aa": "I",
+    "sasa_free": 74.3,
+    "bsa_fab": 73.1,
+    "occl_glycan": 0,
+    "hydrophobic": true
+   },
+   {
+    "mature": 409,
+    "uniprot": 433,
+    "aa": "H",
+    "sasa_free": 146.6,
+    "bsa_fab": 68.6,
+    "occl_glycan": 0,
+    "hydrophobic": false
+   },
+   {
+    "mature": 465,
+    "uniprot": 489,
+    "aa": "K",
+    "sasa_free": 109.9,
+    "bsa_fab": 62.2,
+    "occl_glycan": 0,
+    "hydrophobic": false
+   },
+   {
+    "mature": 418,
+    "uniprot": 442,
+    "aa": "S",
+    "sasa_free": 79.6,
+    "bsa_fab": 57.6,
+    "occl_glycan": 0,
+    "hydrophobic": false
+   },
+   {
+    "mature": 384,
+    "uniprot": 408,
+    "aa": "Q",
+    "sasa_free": 72.8,
+    "bsa_fab": 57.0,
+    "occl_glycan": 0,
+    "hydrophobic": false
+   },
+   {
+    "mature": 473,
+    "uniprot": 497,
+    "aa": "N",
+    "sasa_free": 129.4,
+    "bsa_fab": 45.9,
+    "occl_glycan": 0,
+    "hydrophobic": false
+   },
+   {
+    "mature": 417,
+    "uniprot": 441,
+    "aa": "V",
+    "sasa_free": 49.9,
+    "bsa_fab": 45.8,
+    "occl_glycan": 0,
+    "hydrophobic": true
+   },
+   {
+    "mature": 349,
+    "uniprot": 373,
+    "aa": "P",
+    "sasa_free": 49.3,
+    "bsa_fab": 37.4,
+    "occl_glycan": 0,
+    "hydrophobic": true
+   },
+   {
+    "mature": 353,
+    "uniprot": 377,
+    "aa": "R",
+    "sasa_free": 161.8,
+    "bsa_fab": 33.9,
+    "occl_glycan": 0,
+    "hydrophobic": false
+   },
+   {
+    "mature": 471,
+    "uniprot": 495,
+    "aa": "G",
+    "sasa_free": 35.9,
+    "bsa_fab": 31.5,
+    "occl_glycan": 0,
+    "hydrophobic": false
+   },
+   {
+    "mature": 412,
+    "uniprot": 436,
+    "aa": "F",
+    "sasa_free": 39.9,
+    "bsa_fab": 30.8,
+    "occl_glycan": 0,
+    "hydrophobic": true
+   },
+   {
+    "mature": 440,
+    "uniprot": 464,
+    "aa": "S",
+    "sasa_free": 28.0,
+    "bsa_fab": 28.0,
+    "occl_glycan": 0,
+    "hydrophobic": false
+   },
+   {
+    "mature": 469,
+    "uniprot": 493,
+    "aa": "N",
+    "sasa_free": 35.1,
+    "bsa_fab": 26.9,
+    "occl_glycan": 0,
+    "hydrophobic": false
+   },
+   {
+    "mature": 438,
+    "uniprot": 462,
+    "aa": "I",
+    "sasa_free": 25.4,
+    "bsa_fab": 25.4,
+    "occl_glycan": 0,
+    "hydrophobic": true
+   },
+   {
+    "mature": 441,
+    "uniprot": 465,
+    "aa": "G",
+    "sasa_free": 28.0,
+    "bsa_fab": 23.5,
+    "occl_glycan": 0,
+    "hydrophobic": false
+   },
+   {
+    "mature": 411,
+    "uniprot": 435,
+    "aa": "Q",
+    "sasa_free": 93.1,
+    "bsa_fab": 19.1,
+    "occl_glycan": 0,
+    "hydrophobic": false
+   },
+   {
+    "mature": 466,
+    "uniprot": 490,
+    "aa": "I",
+    "sasa_free": 41.1,
+    "bsa_fab": 18.2,
+    "occl_glycan": 0,
+    "hydrophobic": true
+   },
+   {
+    "mature": 408,
+    "uniprot": 432,
+    "aa": "Q",
+    "sasa_free": 37.4,
+    "bsa_fab": 11.8,
+    "occl_glycan": 0,
+    "hydrophobic": false
+   },
+   {
+    "mature": 382,
+    "uniprot": 406,
+    "aa": "L",
+    "sasa_free": 6.0,
+    "bsa_fab": 1.2,
+    "occl_glycan": 0,
+    "hydrophobic": true
+   },
+   {
+    "mature": 415,
+    "uniprot": 439,
+    "aa": "A",
+    "sasa_free": 3.6,
+    "bsa_fab": 1.2,
+    "occl_glycan": 0,
+    "hydrophobic": true
+   }
+  ]
+ },
+ "6ARU": {
+  "total_bsa": 842.8,
+  "total_glycan_occl": 0,
+  "residues": [
+   {
+    "mature": 468,
+    "uniprot": 492,
+    "aa": "S",
+    "sasa_free": 95.1,
+    "bsa_fab": 93.9,
+    "occl_glycan": 0,
+    "hydrophobic": false
+   },
+   {
+    "mature": 467,
+    "uniprot": 491,
+    "aa": "I",
+    "sasa_free": 76.7,
+    "bsa_fab": 75.5,
+    "occl_glycan": 0,
+    "hydrophobic": true
+   },
+   {
+    "mature": 409,
+    "uniprot": 433,
+    "aa": "H",
+    "sasa_free": 147.1,
+    "bsa_fab": 70.5,
+    "occl_glycan": 0,
+    "hydrophobic": false
+   },
+   {
+    "mature": 443,
+    "uniprot": 467,
+    "aa": "K",
+    "sasa_free": 130.3,
+    "bsa_fab": 66.5,
+    "occl_glycan": 0,
+    "hydrophobic": false
+   },
+   {
+    "mature": 384,
+    "uniprot": 408,
+    "aa": "Q",
+    "sasa_free": 79.5,
+    "bsa_fab": 64.5,
+    "occl_glycan": 0,
+    "hydrophobic": false
+   },
+   {
+    "mature": 465,
+    "uniprot": 489,
+    "aa": "K",
+    "sasa_free": 108.8,
+    "bsa_fab": 56.3,
+    "occl_glycan": 0,
+    "hydrophobic": false
+   },
+   {
+    "mature": 418,
+    "uniprot": 442,
+    "aa": "S",
+    "sasa_free": 65.2,
+    "bsa_fab": 45.4,
+    "occl_glycan": 0,
+    "hydrophobic": false
+   },
+   {
+    "mature": 473,
+    "uniprot": 497,
+    "aa": "N",
+    "sasa_free": 124.1,
+    "bsa_fab": 42.9,
+    "occl_glycan": 0,
+    "hydrophobic": false
+   },
+   {
+    "mature": 417,
+    "uniprot": 441,
+    "aa": "V",
+    "sasa_free": 42.9,
+    "bsa_fab": 42.3,
+    "occl_glycan": 0,
+    "hydrophobic": true
+   },
+   {
+    "mature": 349,
+    "uniprot": 373,
+    "aa": "P",
+    "sasa_free": 51.1,
+    "bsa_fab": 41.1,
+    "occl_glycan": 0,
+    "hydrophobic": true
+   },
+   {
+    "mature": 440,
+    "uniprot": 464,
+    "aa": "S",
+    "sasa_free": 30.4,
+    "bsa_fab": 30.4,
+    "occl_glycan": 0,
+    "hydrophobic": false
+   },
+   {
+    "mature": 469,
+    "uniprot": 493,
+    "aa": "N",
+    "sasa_free": 36.3,
+    "bsa_fab": 28.0,
+    "occl_glycan": 0,
+    "hydrophobic": false
+   },
+   {
+    "mature": 353,
+    "uniprot": 377,
+    "aa": "R",
+    "sasa_free": 161.3,
+    "bsa_fab": 27.9,
+    "occl_glycan": 0,
+    "hydrophobic": false
+   },
+   {
+    "mature": 438,
+    "uniprot": 462,
+    "aa": "I",
+    "sasa_free": 27.8,
+    "bsa_fab": 27.2,
+    "occl_glycan": 0,
+    "hydrophobic": true
+   },
+   {
+    "mature": 441,
+    "uniprot": 465,
+    "aa": "G",
+    "sasa_free": 27.0,
+    "bsa_fab": 26.4,
+    "occl_glycan": 0,
+    "hydrophobic": false
+   },
+   {
+    "mature": 471,
+    "uniprot": 495,
+    "aa": "G",
+    "sasa_free": 31.4,
+    "bsa_fab": 24.6,
+    "occl_glycan": 0,
+    "hydrophobic": false
+   },
+   {
+    "mature": 412,
+    "uniprot": 436,
+    "aa": "F",
+    "sasa_free": 37.8,
+    "bsa_fab": 22.9,
+    "occl_glycan": 0,
+    "hydrophobic": true
+   },
+   {
+    "mature": 466,
+    "uniprot": 490,
+    "aa": "I",
+    "sasa_free": 57.3,
+    "bsa_fab": 17.1,
+    "occl_glycan": 0,
+    "hydrophobic": true
+   },
+   {
+    "mature": 411,
+    "uniprot": 435,
+    "aa": "Q",
+    "sasa_free": 88.7,
+    "bsa_fab": 16.7,
+    "occl_glycan": 0,
+    "hydrophobic": false
+   },
+   {
+    "mature": 408,
+    "uniprot": 432,
+    "aa": "Q",
+    "sasa_free": 36.4,
+    "bsa_fab": 14.2,
+    "occl_glycan": 0,
+    "hydrophobic": false
+   },
+   {
+    "mature": 382,
+    "uniprot": 406,
+    "aa": "L",
+    "sasa_free": 9.7,
+    "bsa_fab": 4.2,
+    "occl_glycan": 0,
+    "hydrophobic": true
+   },
+   {
+    "mature": 415,
+    "uniprot": 439,
+    "aa": "A",
+    "sasa_free": 6.0,
+    "bsa_fab": 4.2,
+    "occl_glycan": 0,
+    "hydrophobic": true
+   }
+  ]
+ }
+}

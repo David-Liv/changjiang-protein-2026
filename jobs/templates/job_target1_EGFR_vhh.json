@@ -1,0 +1,16 @@
+{
+  "job_id": "job_t1_egfr_vhh_set1_001",
+  "target_id": "target1_EGFR",
+  "molecule_type": "VHH",
+  "submitted_by": "David",
+  "target_pdb_relpath": "targets/target1_EGFR/targets/t1_4KRP_domIII.pdb",
+  "expected_sha256": "950b0cc8884cd44913edfc50653af91f4cc86b9799fa72d3923f957fa07f5be7",
+  "chains": "A",
+  "hotspots": "A409,A412,A417,A438,A465,A467",
+  "lengths": [110, 135],
+  "number_of_final_designs": 5,
+  "max_trajectories": 20,
+  "use_soluble_mpnn": true,
+  "known_binders_fasta_relpath": "targets/target1_EGFR/targets/known_binders_SEQRES.fasta",
+  "notes": "Target 1 EGFR Face A2 Pole N (with His409 pH 6.0 lever)"
+}

@@ -1,0 +1,15 @@
+{
+  "job_id": "job_t5_tl1a_minibinder_001",
+  "target_id": "target5_TL1A",
+  "molecule_type": "minibinder",
+  "submitted_by": "David",
+  "target_pdb_relpath": "targets/target5_TL1A/targets/t1_2RE9_chainA.pdb",
+  "expected_sha256": "69e31cbc88fe26fa407a20b3959eff14b74716b08f9988b9bfb5ade748ced9eb",
+  "chains": "A",
+  "hotspots": "A33,A86,A88,A148,A150",
+  "lengths": [55, 85],
+  "number_of_final_designs": 5,
+  "max_trajectories": 20,
+  "use_soluble_mpnn": true,
+  "notes": "Target 5 TL1A initial Minibinder batch on 80GB GPU"
+}

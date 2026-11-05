@@ -1,0 +1,107 @@
+[
+ {
+  "name": "t1_4KRP_domIII",
+  "parent": "4KRP",
+  "resolution": 2.82,
+  "range_mature": [
+   311,
+   514
+  ],
+  "range_uniprot": [
+   335,
+   538
+  ],
+  "desc": "\u2605\u4e3b\u529b\uff1a2.82 \u00c5\uff0c\u5c0d P00533-1 \u96f6\u932f\u914d\uff0c\u7a97\u53e3\u5168\u8986\u84cb",
+  "n_res": 204,
+  "n_atoms": 1536,
+  "sha256": "950b0cc8884cd44913edfc50653af91f4cc86b9799fa72d3923f957fa07f5be7",
+  "hotspots_missing": [],
+  "cut_disulfides": [],
+  "new_hydrophobic": 72.3,
+  "hot_to_cut": 24.0
+ },
+ {
+  "name": "t2_4KRL_domIII",
+  "parent": "4KRL",
+  "resolution": 2.85,
+  "range_mature": [
+   311,
+   514
+  ],
+  "range_uniprot": [
+   335,
+   538
+  ],
+  "desc": "pH 6.0 \u6676\u9577\u689d\u4ef6\uff1b2.85 \u00c5\uff1b\u96f6\u932f\u914d\uff08\u8868\u9054\u6a19\u7c64 307\u2013310 \u5df2\u5254\u9664\uff09",
+  "n_res": 201,
+  "n_atoms": 1478,
+  "sha256": "8ad0aed34e3abdc8a5018effb664b422bc883e03a92e08715add1c51c3a65da3",
+  "hotspots_missing": [],
+  "cut_disulfides": [],
+  "new_hydrophobic": 0,
+  "hot_to_cut": null
+ },
+ {
+  "name": "t3_4KRO_domIII",
+  "parent": "4KRO",
+  "resolution": 3.05,
+  "range_mature": [
+   311,
+   514
+  ],
+  "range_uniprot": [
+   335,
+   538
+  ],
+  "desc": "\u7b2c\u4e09\u500b\u7368\u7acb\u4f86\u6e90\uff1b3.05 \u00c5\uff1b\u96f6\u932f\u914d",
+  "n_res": 204,
+  "n_atoms": 1507,
+  "sha256": "96c061d1b1a4d52537ae83de6d6abb33604c04c7ff080d282a643b137b2f84f1",
+  "hotspots_missing": [],
+  "cut_disulfides": [],
+  "new_hydrophobic": 74.3,
+  "hot_to_cut": 23.7
+ },
+ {
+  "name": "t4_4KRP_faceB",
+  "parent": "4KRP",
+  "resolution": 2.82,
+  "range_mature": [
+   200,
+   612
+  ],
+  "range_uniprot": [
+   224,
+   636
+  ],
+  "desc": "Face B \u5c08\u7528\uff1a\u6210\u719f 200-612\u3002Face B \u8de8 domain II/III \u4ecb\u9762\uff0c\u7a84\u7a97\u53e3\u7121\u6cd5\u907f\u958b\u5207\u9762\u5047\u8c61\uff08287-480 \u6642\u50c5 4.2 \u00c5\uff09\uff0c\u5fc5\u9808\u52a0\u5bec\u81f3\u6b64",
+  "n_res": 405,
+  "n_atoms": 2888,
+  "sha256": "97a0b6de4408b05712ac806e48bfb37f517685475d4fafdac73f69e022d50e1b",
+  "hotspots_missing": [],
+  "cut_disulfides": [],
+  "new_hydrophobic": 189.0,
+  "hot_to_cut": 12.0
+ },
+ {
+  "name": "t5_4KRP_fullECD",
+  "parent": "4KRP",
+  "resolution": 2.82,
+  "range_mature": [
+   4,
+   612
+  ],
+  "range_uniprot": [
+   28,
+   636
+  ],
+  "desc": "\u5b8c\u6574 ECD \u8108\u7d61\u7248\uff0c\u96f6\u932f\u914d",
+  "n_res": 534,
+  "n_atoms": 3749,
+  "sha256": "54a74c0353eb8713273e83c872cfb677cb47393328498950ab251e336740674b",
+  "hotspots_missing": [],
+  "cut_disulfides": [],
+  "new_hydrophobic": 0,
+  "hot_to_cut": null
+ }
+]

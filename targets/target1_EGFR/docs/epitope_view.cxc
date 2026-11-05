@@ -1,0 +1,53 @@
+# EGFR VHH 靶點檔案 — 表位／熱點檢視
+# 用法：ChimeraX 開啟後 → File > Open 選本檔，或命令列 chimerax docs/epitope_view.cxc
+# 需與 data/raw/1YY9.pdb 同一專案目錄結構
+
+open data/raw/1YY9.pdb
+hide atoms
+show cartoon
+color #d8d8d8
+set bgColor white
+lighting soft
+
+# 結構域（成熟編號）
+color /A:1-166   #bcd7f0 target cartoon     # domain I   (L1)
+color /A:167-309 #d9d9d9 target cartoon     # domain II  (CR1)
+color /A:310-480 #f5d9a8 target cartoon     # domain III (L2) ← 表位所在
+color /A:481-621 #d9d9d9 target cartoon     # domain IV  (CR2)
+
+# cetuximab Fab（半透明，示意已知結合物佔位）
+color /C,D #9aa7b5 target cartoon
+transparency /C,D 70 target c
+
+# 共識足跡 22 個殘基
+show /A:349,353,382,384,408,409,411,412,415,417,418,438,440,441,443,465,466,467,468,469,471,473 atoms
+style /A:349,353,382,384,408,409,411,412,415,417,418,438,440,441,443,465,466,467,468,469,471,473 stick
+color /A:349,353,382,384,408,409,411,412,415,417,418,438,440,441,443,465,466,467,468,469,471,473 #f0a860
+
+# Pole N 主熱點（紅）
+color /A:409,412,417,438,465,467 #d1453f
+label /A:409,412,417,438,465,467 residues text "{0.name}{0.number}" height 1.6 color black
+
+# Pole S 備選熱點（藍）
+color /A:384,418,443,468 #3b6fb6
+label /A:384,418,443,468 residues text "{0.name}{0.number}" height 1.6 color black
+
+# pH 6.0 樞紐 His409 特別標示
+color /A:409 #8b1a16
+style /A:409 ball
+
+# 醣基化位點（綠）與已建模醣鏈
+color /A:32,328,337,389,420,504,544,579 #3f8f52 target a
+show /A:32,328,337,389,420,504,544,579 atoms
+style /A:32,328,337,389,420,504,544,579 stick
+show :NAG,BMA,MAN atoms
+style :NAG,BMA,MAN stick
+color :NAG,BMA,MAN #7fc48f
+
+# 序列衝突警示位（洋紅）— 這三處參考結構與 P00533-1 不同
+color /A:474,516,610 #b34bb0 target a
+show /A:474,516,610 atoms
+style /A:474,516,610 stick
+
+view /A:409,412,417,438,465,467
+echo "紅=主熱點 Pole N（深紅為 pH 樞紐 His409）；藍=備選 Pole S；橙=共識足跡；綠=醣基化位點；洋紅=序列衝突警示位"

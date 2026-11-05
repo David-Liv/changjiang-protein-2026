@@ -1,0 +1,90 @@
+{
+ "patches": {
+  "0": [
+   349,
+   353,
+   382,
+   384,
+   408,
+   409,
+   411,
+   412,
+   415,
+   417,
+   418,
+   438,
+   440,
+   441,
+   443,
+   465,
+   466,
+   467,
+   468,
+   469,
+   471,
+   473
+  ]
+ },
+ "sets": {
+  "A_beta_core": {
+   "desc": "\u03b2 \u6298\u758a\u6838\u5fc3\uff0c\u6700\u7b26\u5408 SOP \u00a7A-4 \u504f\u597d\uff08\u898f\u5247\u4e8c\u7d1a\u7d50\u69cb\uff0b\u5927\u758f\u6c34\uff09",
+   "res": [
+    467,
+    465,
+    417,
+    412,
+    438
+   ],
+   "uniprot": [
+    436,
+    441,
+    462,
+    489,
+    491
+   ],
+   "span": 11.3,
+   "bindcraft": "A412,A417,A438,A465,A467",
+   "rfdiffusion": "ppi.hotspot_res=[A412,A417,A438,A465,A467]"
+  },
+  "B_pH_lever": {
+   "desc": "\u7d0d\u5165 H409\uff1apH 6.0 \u4e0b\u53ef\u5f62\u6210\u9e7d\u6a4b\u7684\u6a1e\u7d10\uff0c\u885d pH \u9078\u64c7\u6027",
+   "res": [
+    409,
+    467,
+    443,
+    468,
+    465
+   ],
+   "uniprot": [
+    433,
+    467,
+    489,
+    491,
+    492
+   ],
+   "span": 23.5,
+   "bindcraft": "A409,A443,A465,A467,A468",
+   "rfdiffusion": "ppi.hotspot_res=[A409,A443,A465,A467,A468]"
+  },
+  "C_max_BSA": {
+   "desc": "\u7d14\u57cb\u85cf\u9762\u7a4d\u6700\u5927\u7684\u6838\u5fc3\uff0c\u4e0d\u8a08\u4e8c\u7d1a\u7d50\u69cb\u504f\u597d",
+   "res": [
+    468,
+    443,
+    467,
+    409,
+    465
+   ],
+   "uniprot": [
+    433,
+    467,
+    489,
+    491,
+    492
+   ],
+   "span": 23.5,
+   "bindcraft": "A409,A443,A465,A467,A468",
+   "rfdiffusion": "ppi.hotspot_res=[A409,A443,A465,A467,A468]"
+  }
+ }
+}
