@@ -370,6 +370,72 @@ def evaluate_candidates_with_ipsae(
     return results
 
 
+def check_calibration_completeness(
+    run_dir: pathlib.Path, require_variants: bool = True
+) -> tuple[bool, list[str], list[str]]:
+    """Verify whether all stages of Target 2 TNF-alpha calibration are truly completed on Google Drive."""
+    stages = [
+        ("s1_mono (單體 3 條)", run_dir / "s1_mono", 3),
+        ("s23 (陽/陰性校準 8 條)", run_dir / "s23", 8),
+        ("s1_trimer (三聚體 2 條)", run_dir / "s1_trimer", 2),
+    ]
+    if require_variants:
+        stages.append(("s23_var (穩定度 8×8=64 變體)", run_dir / "s23_var", 64))
+
+    done_list: list[str] = []
+    missing_list: list[str] = []
+    for label, sdir, expected_n in stages:
+        pdbs = list(sdir.glob("*.pdb")) if sdir.exists() else []
+        csv_ok = (sdir / "summary.csv").exists() and (sdir / "summary.csv").stat().st_size > 0
+        if len(pdbs) >= expected_n and csv_ok:
+            done_list.append(f"{label}: ✅ {len(pdbs)}/{expected_n} PDB + summary.csv")
+        else:
+            missing_list.append(f"{label}: ⏳ {len(pdbs)}/{expected_n} PDB (summary.csv={'有' if csv_ok else '無'})")
+
+    zip_path = run_dir / "tnf_calibration_runs.zip"
+    if zip_path.exists() and zip_path.stat().st_size > 0 and not missing_list:
+        done_list.append(f"tnf_calibration_runs.zip: ✅ ({zip_path.stat().st_size // 1024} KB)")
+    else:
+        missing_list.append("tnf_calibration_runs.zip: ⏳ 待打包")
+
+    return len(missing_list) == 0, done_list, missing_list
+
+
+def print_drive_diagnostic(drive_root: pathlib.Path) -> None:
+    """Print detailed diagnostic of Google Drive queue and Target 2 calibration progress."""
+    dirs = ensure_drive_workspace(drive_root)
+    print("\n================ [Google Drive 狀態與進度診斷] ================")
+    for k in ("running", "pending", "completed", "failed"):
+        files = [p.name for p in sorted(dirs[k].glob("*.json"))]
+        print(f"  📂 jobs/{k:<10}: {len(files)} 個 -> {files}")
+
+    cal_dir = dirs["runs"] / "target2_TNFa_calibration"
+    if cal_dir.exists():
+        is_done, done_items, missing_items = check_calibration_completeness(cal_dir)
+        print(f"\n  📊 Target 2 (TNF-α) 校準進度 ({'🎉 100% 全部完成' if is_done else '🔄 部分完成，可斷點續跑'}):")
+        for item in done_items:
+            print(f"     {item}")
+        for item in missing_items:
+            print(f"     {item}")
+        manifest_p = cal_dir / "run_manifest.json"
+        if manifest_p.exists():
+            try:
+                m = json.loads(manifest_p.read_text(encoding="utf-8"))
+                print(
+                    f"  🕒 上次運行記錄: status={m.get('status')}, 耗時={m.get('elapsed_seconds')}s, "
+                    f"預估消耗={m.get('estimated_cu_used')} CU, GPU={m.get('gpu_name')}"
+                )
+            except Exception:
+                pass
+        log_p = cal_dir / "worker.log"
+        if log_p.exists():
+            lines = log_p.read_text(encoding="utf-8", errors="replace").splitlines()
+            print("\n  📜 worker.log 最後 12 行記錄:")
+            for ln in lines[-12:]:
+                print(f"     {ln}")
+    print("===============================================================\n", flush=True)
+
+
 def run_calibration_job(job: dict[str, Any], run_dir: pathlib.Path, log_fn, dry_run: bool = False) -> bool:
     """Execute the full Target 2 TNF-alpha calibration & stability benchmark using `tnf_pipeline.py`."""
     spec_dir = (REPO_ROOT / job.get("spec_dir_relpath", "targets/target2_TNFa")).resolve()
@@ -433,12 +499,16 @@ def run_calibration_job(job: dict[str, Any], run_dir: pathlib.Path, log_fn, dry_
             )
         )
 
+    all_steps_ok = True
     for title, sp_file, out_sub, extra_args in batches:
-        run_step(title + " [fold]", ["fold", "--spec", sp_file, "--out", str(out_sub), "--chunk", chunk] + extra_args)
-        run_step(
+        fold_ok = run_step(
+            title + " [fold]", ["fold", "--spec", sp_file, "--out", str(out_sub), "--chunk", chunk] + extra_args
+        )
+        score_ok = run_step(
             title + " [score]",
             ["score", "--dir", str(out_sub), "--cutoffs", "10", "15", "--csv", str(out_sub / "summary.csv")],
         )
+        all_steps_ok = all_steps_ok and fold_ok and score_ok
 
     # Crystal structure superposition (5M2J, 1TNF, 2AZ5)
     mono_pdb = run_dir / "s1_mono" / "1a_TNF_mono__r4L25.pdb"
@@ -456,7 +526,13 @@ def run_calibration_job(job: dict[str, Any], run_dir: pathlib.Path, log_fn, dry_
             if f.is_file() and f != zip_path:
                 zf.write(f, f.relative_to(run_dir))
     log_fn(f"Packaged all calibration results to: {zip_path}")
-    return True
+
+    is_done, _, missing = check_calibration_completeness(
+        run_dir, require_variants=bool(job.get("run_stability_variants", True))
+    )
+    if not is_done:
+        log_fn(f"WARNING: Calibration job incomplete, missing items: {missing}")
+    return all_steps_ok and is_done
 
 
 def write_bindcraft_settings(job: dict[str, Any], target_pdb: pathlib.Path, run_dir: pathlib.Path) -> pathlib.Path:
@@ -751,11 +827,20 @@ def main() -> None:
         action="store_true",
         help="Flush Google Drive and immediately release Colab GPU runtime (runtime.unassign()) after finishing",
     )
+    parser.add_argument(
+        "--diagnose",
+        action="store_true",
+        help="Print Google Drive queue and Target 2 calibration completeness diagnostic and exit",
+    )
     parser.add_argument("--poll-interval", type=int, default=15, help="Seconds between queue polls")
     args = parser.parse_args()
 
     drive_root = pathlib.Path(args.drive_root)
     dirs = ensure_drive_workspace(drive_root)
+
+    if args.diagnose:
+        print_drive_diagnostic(drive_root)
+        return
 
     exit_code = 0
     jobs_completed = 0
@@ -771,6 +856,7 @@ def main() -> None:
             return
 
         print(f"Queue Worker watching: {dirs['pending']} (and auto-resuming from {dirs['running']})", flush=True)
+        auto_recovered_once = False
         while True:
             resumed_jobs = sorted(dirs["running"].glob("*.json"))
             if resumed_jobs:
@@ -780,10 +866,39 @@ def main() -> None:
                 )
             pending_jobs = sorted(dirs["pending"].glob("*.json"))
             all_queue = resumed_jobs + pending_jobs
+
+            if not all_queue and not auto_recovered_once:
+                auto_recovered_once = True
+                # Self-healing check: did an earlier run move job_target2_TNFa_calibration.json to completed/failed prematurely?
+                cal_dir = dirs["runs"] / "target2_TNFa_calibration"
+                comp_job = dirs["completed"] / "job_target2_TNFa_calibration.json"
+                fail_job = dirs["failed"] / "job_target2_TNFa_calibration.json"
+                tmpl_job = REPO_ROOT / "jobs" / "templates" / "job_target2_TNFa_calibration.json"
+                if cal_dir.exists() or comp_job.exists() or fail_job.exists():
+                    is_done, _, missing_items = check_calibration_completeness(cal_dir)
+                    if not is_done and tmpl_job.exists():
+                        recovered = dirs["running"] / "job_target2_TNFa_calibration.json"
+                        shutil.copy2(str(tmpl_job), str(recovered))
+                        for old_p in (comp_job, fail_job):
+                            if old_p.exists():
+                                old_p.unlink()
+                        print(
+                            f"[AUTO-RECOVER] 檢測到上次 TNF-α 校準任務未跑完全部階段（待完成：{missing_items}）！\n"
+                            f"               已自動將任務從 completed/failed 恢復至 {recovered} 並從斷點繼續執行...",
+                            flush=True,
+                        )
+                        all_queue = [recovered]
+                    elif is_done and args.once:
+                        print_drive_diagnostic(drive_root)
+                        print(
+                            "🎉 [100% 已完成] Target 2 (TNF-α) 全部校準實驗已在上次運行中 100% 完成並保存在 Google Drive！無需重複消耗 GPU 額度。",
+                            flush=True,
+                        )
+
             if not all_queue and args.once:
                 print(
-                    f"[提示] 當前隊列為空 ({dirs['pending']} 與 {dirs['running']} 均無任務)。"
-                    "請先運行『第 3 格』投遞任務單！",
+                    f"[提示] 當前隊列為空 ({dirs['pending']} 與 {dirs['running']} 均無待執行任務)。"
+                    "若需投遞新任務，請運行『第 3 格』！",
                     flush=True,
                 )
             for jp in all_queue:
