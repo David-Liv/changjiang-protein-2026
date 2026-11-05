@@ -21,11 +21,13 @@ import csv
 import datetime as dt
 import hashlib
 import json
+import os
 import pathlib
 import shutil
 import subprocess
 import sys
 import time
+import traceback
 import zipfile
 from typing import Any
 
@@ -95,17 +97,115 @@ def ensure_drive_workspace(drive_root: pathlib.Path) -> dict[str, pathlib.Path]:
     return dirs
 
 
-def detect_gpu_chunk() -> int:
-    """Return optimal ESMFold chunk size: 0 (no chunking, fastest) if VRAM >= 38GB else 64."""
+def inspect_gpu_environment() -> dict[str, Any]:
+    """Inspect active GPU hardware, compute capability, and estimated Colab CU burn rate (1,000 CU budget)."""
+    info: dict[str, Any] = {
+        "cuda_available": False,
+        "gpu_name": "CPU",
+        "vram_gb": 0.0,
+        "sm_arch": "cpu",
+        "major": 0,
+        "minor": 0,
+        "est_cu_per_hour": 0.1,
+        "bindcraft_compatible": True,
+        "warning": "",
+    }
     try:
         import torch
 
         if torch.cuda.is_available():
-            gb = torch.cuda.get_device_properties(0).total_memory / 1e9
-            return 0 if gb >= 38 else 64
+            p = torch.cuda.get_device_properties(0)
+            gb = round(p.total_memory / 1e9, 1)
+            major, minor = int(p.major), int(p.minor)
+            sm = f"sm_{major}{minor}"
+            name_up = p.name.upper()
+            if "H100" in name_up or major == 9:
+                cu_rate = 18.0
+                warn = "H100 burns ~18 CU/hr (~55 hrs on 1,000 CU). A100 is recommended for better CU efficiency."
+                bc_compat = True
+            elif major >= 12 or "BLACKWELL" in name_up or "RTX PRO 6000" in name_up or "G4" in name_up:
+                cu_rate = 9.5
+                warn = (
+                    f"Detected Blackwell {p.name} ({sm}). BindCraft's CUDA 12.4 / JAX stack does NOT support {sm}. "
+                    "Please switch Colab runtime to A100 for BindCraft generation jobs!"
+                )
+                bc_compat = False
+            elif "A100" in name_up or (major == 8 and minor == 0):
+                cu_rate = 7.5 if gb >= 70 else 5.4
+                warn = ""
+                bc_compat = True
+            else:
+                cu_rate = 4.0
+                warn = ""
+                bc_compat = True
+
+            info.update(
+                {
+                    "cuda_available": True,
+                    "gpu_name": p.name,
+                    "vram_gb": gb,
+                    "sm_arch": sm,
+                    "major": major,
+                    "minor": minor,
+                    "est_cu_per_hour": cu_rate,
+                    "bindcraft_compatible": bc_compat,
+                    "warning": warn,
+                }
+            )
     except Exception:
         pass
-    return 64
+    return info
+
+
+def detect_gpu_chunk() -> int:
+    """Return optimal ESMFold chunk size: 0 (no chunking, fastest) if VRAM >= 38GB else 64."""
+    info = inspect_gpu_environment()
+    return 0 if info["vram_gb"] >= 38 else 64
+
+
+def sync_filesystem() -> None:
+    """Flush Python streams and OS filesystem buffers to ensure Google Drive FUSE writes complete."""
+    sys.stdout.flush()
+    sys.stderr.flush()
+    if hasattr(os, "sync"):
+        try:
+            os.sync()
+        except Exception:
+            pass
+
+
+def flush_drive_and_unassign_gpu(drive_root: pathlib.Path, unassign: bool = True) -> None:
+    """Verify results are saved on Google Drive, flush Drive mount, and unassign Colab GPU runtime."""
+    sync_filesystem()
+    if not drive_root.exists():
+        print(
+            f"[SAFEGUARD] Drive root {drive_root} does not exist! "
+            "Skipping GPU unassign so local files are not lost."
+        )
+        return
+
+    saved_files = [p for p in (drive_root / "runs").rglob("*") if p.is_file()] if (drive_root / "runs").exists() else []
+    print(f"\n=== [Auto-Save Verification] {len(saved_files)} files persisted under {drive_root / 'runs'} ===")
+
+    try:
+        from google.colab import drive  # type: ignore
+
+        print("Flushing Google Drive FUSE buffers (drive.flush_and_unmount)...")
+        drive.flush_and_unmount()
+        print("Google Drive safely flushed and unmounted ✓")
+    except Exception as e:
+        print(f"[Info] Google Drive unmount skipped (not in Colab or already unmounted: {e})")
+
+    if unassign:
+        try:
+            from google.colab import runtime  # type: ignore
+
+            print("Releasing Colab GPU runtime now (runtime.unassign()) to save your 1,000 CU quota...")
+            sys.stdout.flush()
+            time.sleep(2)
+            runtime.unassign()
+        except Exception as e:
+            print(f"[Info] runtime.unassign() skipped (not running inside Google Colab: {e})")
 
 
 def extract_target_sequence_from_pdb(pdb_path: pathlib.Path) -> str:
@@ -363,7 +463,8 @@ def write_bindcraft_settings(job: dict[str, Any], target_pdb: pathlib.Path, run_
 
 
 def process_job(job_path: pathlib.Path, drive_root: pathlib.Path, dry_run: bool = False) -> bool:
-    """Execute a single job JSON and record outputs to Google Drive."""
+    """Execute a single job JSON and record outputs to Google Drive with guaranteed persistence."""
+    t_start = time.time()
     dirs = ensure_drive_workspace(drive_root)
     job = json.loads(job_path.read_text(encoding="utf-8"))
     job_id = job.get("job_id", job_path.stem)
@@ -387,53 +488,117 @@ def process_job(job_path: pathlib.Path, drive_root: pathlib.Path, dry_run: bool 
         with log_file.open("a", encoding="utf-8") as lf:
             lf.write(line + "\n")
 
-    log(f"Starting job {job_id} (stage={stage}, submitted_by={job.get('submitted_by', 'unknown')})")
+    gpu_info = inspect_gpu_environment()
+    log(
+        f"Starting job {job_id} (stage={stage}, submitted_by={job.get('submitted_by', 'unknown')}) | "
+        f"GPU={gpu_info['gpu_name']} ({gpu_info['vram_gb']} GB, {gpu_info['sm_arch']}, "
+        f"~{gpu_info['est_cu_per_hour']} CU/hr on 1,000 CU Ultra 5x quota)"
+    )
+    if gpu_info["warning"]:
+        log(f"[GPU WARNING] {gpu_info['warning']}")
 
-    if stage == "evaluation_calibration":
-        ok = run_calibration_job(job, run_dir, log, dry_run=dry_run)
-        dest_dir = dirs["completed"] if ok else dirs["failed"]
-        shutil.move(str(running_path), str(dest_dir / job_path.name))
-        log(f"Calibration job {job_id} finished (ok={ok}) -> {dest_dir / job_path.name}")
-        return ok
-
-    target_rel = job.get("target_pdb_relpath", "")
-    target_pdb = (REPO_ROOT / target_rel).resolve()
-    if not target_pdb.exists():
-        alt_pdb = (drive_root / target_rel).resolve()
-        if alt_pdb.exists():
-            target_pdb = alt_pdb
-        else:
-            log(f"ERROR: Target PDB not found at {target_pdb} or {alt_pdb}")
-            shutil.move(str(running_path), str(dirs["failed"] / job_path.name))
+    ok = False
+    try:
+        if stage == "generation" and not dry_run and not gpu_info["bindcraft_compatible"]:
+            log(
+                f"ERROR: Aborting BindCraft generation on incompatible GPU {gpu_info['gpu_name']} "
+                f"({gpu_info['sm_arch']}) to prevent wasting Compute Units. Switch runtime to A100!"
+            )
             return False
 
-    ok, val_out = run_pre_validation(
-        target_pdb=target_pdb,
-        hotspots=job.get("hotspots", ""),
-        expected_sha=job.get("expected_sha256", ""),
-    )
-    log("Pre-validation output:\n" + val_out.strip())
-    if not ok:
-        log("ERROR: Pre-validation failed. Aborting job.")
-        shutil.move(str(running_path), str(dirs["failed"] / job_path.name))
+        if stage == "evaluation_calibration":
+            ok = run_calibration_job(job, run_dir, log, dry_run=dry_run)
+            return ok
+
+        target_rel = job.get("target_pdb_relpath", "")
+        target_pdb = (REPO_ROOT / target_rel).resolve()
+        if not target_pdb.exists():
+            alt_pdb = (drive_root / target_rel).resolve()
+            if alt_pdb.exists():
+                target_pdb = alt_pdb
+            else:
+                log(f"ERROR: Target PDB not found at {target_pdb} or {alt_pdb}")
+                return False
+
+        pre_ok, val_out = run_pre_validation(
+            target_pdb=target_pdb,
+            hotspots=job.get("hotspots", ""),
+            expected_sha=job.get("expected_sha256", ""),
+        )
+        log("Pre-validation output:\n" + val_out.strip())
+        if not pre_ok:
+            log("ERROR: Pre-validation failed. Aborting job.")
+            return False
+
+        settings_path = write_bindcraft_settings(job, target_pdb, run_dir)
+        log(f"Wrote BindCraft target settings to {settings_path}")
+
+        if dry_run:
+            log("Dry-run mode enabled: skipping GPU BindCraft invocation.")
+        else:
+            bindcraft_script = pathlib.Path("/content/BindCraft/bindcraft.py")
+            if bindcraft_script.exists():
+                log(f"Launching BindCraft trajectories in {run_dir}...")
+                bc_cmd = [
+                    "conda",
+                    "run",
+                    "-n",
+                    "BindCraft",
+                    "python",
+                    "-u",
+                    str(bindcraft_script),
+                    "--settings",
+                    str(settings_path),
+                    "--filters",
+                    "/content/BindCraft/settings_filters/default_filters.json",
+                    "--advanced",
+                    "/content/BindCraft/settings_advanced/default_4stage_multimer.json",
+                ]
+                proc = subprocess.run(bc_cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+                log((proc.stdout or "") + (proc.stderr or ""))
+                if proc.returncode != 0:
+                    log(f"WARNING: BindCraft exited with return code {proc.returncode}; harvesting any partial outputs.")
+            else:
+                log(f"Ready for BindCraft execution in {run_dir} (/content/BindCraft not installed in this environment).")
+
+        harvested = harvest_bindcraft_candidates(
+            job, target_pdb, run_dir, dirs["registry"] / "design_registry.csv", dry_run=dry_run
+        )
+        log(f"Harvested & evaluated {harvested} candidate sequences into design_registry.csv.")
+        ok = True
+        return True
+    except Exception as exc:
+        log(f"FATAL EXCEPTION in job {job_id}: {type(exc).__name__}: {exc}\n{traceback.format_exc()}")
+        ok = False
         return False
-
-    settings_path = write_bindcraft_settings(job, target_pdb, run_dir)
-    log(f"Wrote BindCraft target settings to {settings_path}")
-
-    if dry_run:
-        log("Dry-run mode enabled: skipping GPU BindCraft invocation.")
-    else:
-        log(f"Ready for BindCraft execution in {run_dir}")
-
-    harvested = harvest_bindcraft_candidates(
-        job, target_pdb, run_dir, dirs["registry"] / "design_registry.csv", dry_run=dry_run
-    )
-    log(f"Harvested & evaluated {harvested} candidate sequences into design_registry.csv.")
-
-    shutil.move(str(running_path), str(dirs["completed"] / job_path.name))
-    log(f"Job {job_id} finished -> {dirs['completed'] / job_path.name}")
-    return True
+    finally:
+        elapsed_sec = round(time.time() - t_start, 1)
+        est_cu_used = round((elapsed_sec / 3600.0) * float(gpu_info["est_cu_per_hour"]), 3)
+        manifest = {
+            "job_id": job_id,
+            "stage": stage,
+            "status": "COMPLETED" if ok else "FAILED",
+            "gpu_name": gpu_info["gpu_name"],
+            "vram_gb": gpu_info["vram_gb"],
+            "sm_arch": gpu_info["sm_arch"],
+            "elapsed_seconds": elapsed_sec,
+            "estimated_cu_used": est_cu_used,
+            "finished_at": dt.datetime.now().isoformat(timespec="seconds"),
+        }
+        try:
+            (run_dir / "run_manifest.json").write_text(
+                json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8"
+            )
+        except Exception:
+            pass
+        dest_dir = dirs["completed"] if ok else dirs["failed"]
+        if running_path.exists():
+            shutil.move(str(running_path), str(dest_dir / job_path.name))
+        log(
+            f"Job {job_id} finalized (ok={ok}, elapsed={elapsed_sec}s, est_CU={est_cu_used}) -> "
+            f"{dest_dir / job_path.name}"
+        )
+        sync_filesystem()
 
 
 def harvest_bindcraft_candidates(
@@ -544,24 +709,37 @@ def main() -> None:
     parser.add_argument("--job-file", help="Run a specific job JSON file immediately")
     parser.add_argument("--once", action="store_true", help="Process current pending jobs once and exit")
     parser.add_argument("--dry-run", action="store_true", help="Validate inputs and write settings without GPU run")
+    parser.add_argument(
+        "--unassign-on-exit",
+        action="store_true",
+        help="Flush Google Drive and immediately release Colab GPU runtime (runtime.unassign()) after finishing",
+    )
     parser.add_argument("--poll-interval", type=int, default=15, help="Seconds between queue polls")
     args = parser.parse_args()
 
     drive_root = pathlib.Path(args.drive_root)
     dirs = ensure_drive_workspace(drive_root)
 
-    if args.job_file:
-        ok = process_job(pathlib.Path(args.job_file), drive_root, dry_run=args.dry_run)
-        sys.exit(0 if ok else 1)
+    exit_code = 0
+    try:
+        if args.job_file:
+            ok = process_job(pathlib.Path(args.job_file), drive_root, dry_run=args.dry_run)
+            exit_code = 0 if ok else 1
+            return
 
-    print(f"Queue Worker watching: {dirs['pending']}")
-    while True:
-        pending_jobs = sorted(dirs["pending"].glob("*.json"))
-        for jp in pending_jobs:
-            process_job(jp, drive_root, dry_run=args.dry_run)
-        if args.once:
-            break
-        time.sleep(args.poll_interval)
+        print(f"Queue Worker watching: {dirs['pending']}")
+        while True:
+            pending_jobs = sorted(dirs["pending"].glob("*.json"))
+            for jp in pending_jobs:
+                process_job(jp, drive_root, dry_run=args.dry_run)
+            if args.once:
+                break
+            time.sleep(args.poll_interval)
+    finally:
+        if args.unassign_on_exit:
+            flush_drive_and_unassign_gpu(drive_root, unassign=True)
+
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":
