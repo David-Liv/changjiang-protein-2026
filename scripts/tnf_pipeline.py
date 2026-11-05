@@ -432,6 +432,15 @@ def infer_hf(model, tok, full, pos, device, recycles):
             model.output_to_pdb(out)[0])
 
 
+def _is_tag_completed(outdir, tag):
+    """檢查單條序列變體是否已經完整落盤（支援斷點續跑）。"""
+    for ext in (".pdb", ".pae.npy", ".plddt.npy", ".meta.json"):
+        fp = f"{outdir}/{tag}{ext}"
+        if not os.path.exists(fp) or os.path.getsize(fp) == 0:
+            return False
+    return True
+
+
 def _write_outputs(outdir, tag, pdb, pae, pl, pairs, labels, vid, rc, lk, order, t0):
     open(f"{outdir}/{tag}.pdb", "w", encoding="utf-8").write(pdb)
     np.save(f"{outdir}/{tag}.pae.npy", pae)
@@ -445,19 +454,19 @@ def _write_outputs(outdir, tag, pdb, pae, pl, pairs, labels, vid, rc, lk, order,
     tot = sum(len(s) for _, s in pairs)
     ok = pae.shape[0] == len(labels) == tot
     print(f"[{'OK ' if ok else '⚠ 長度不符'}] {tag}  pLDDT {meta['mean_plddt']:.1f}  "
-          f"{meta['seconds']:.0f}s  PAE {pae.shape}  鏈長和 {tot}")
+          f"{meta['seconds']:.0f}s  PAE {pae.shape}  鏈長和 {tot}", flush=True)
     return meta
 
 
 def cmd_fold(a):
-    import torch
+    import gc, torch
     _seed_warning(a)
     a.device = pick_device(a.device)
     print(f"device = {a.device}   recycles={a.recycles}  linkers={a.linkers}  "
-          f"orders={a.chain_orders}")
+          f"orders={a.chain_orders}", flush=True)
     os.makedirs(a.out, exist_ok=True)
     jobs = read_spec(a.spec)
-    tok, model = load_hf(a.device, a.chunk, a.fp16)
+    tok = model = None
     idx, first = [], True
     for name, pairs in jobs:
         for lk in a.linkers:
@@ -469,40 +478,55 @@ def cmd_fold(a):
                 for rc in a.recycles:
                     vid = f"r{rc}L{lk}" + ("rev" if order == "rev" else "")
                     tag, t0 = f"{name}__{vid}", time.time()
+                    if not getattr(a, "overwrite", False) and _is_tag_completed(a.out, tag):
+                        try:
+                            meta = json.load(open(f"{a.out}/{tag}.meta.json", encoding="utf-8"))
+                            print(f"[SKIP 斷點續跑] {tag} 已存在 (pLDDT {meta.get('mean_plddt', 0):.1f})，直接沿用", flush=True)
+                            idx.append({"name": name, "tag": tag, **meta})
+                            continue
+                        except Exception:
+                            pass
+                    if model is None:
+                        tok, model = load_hf(a.device, a.chunk, a.fp16)
                     try:
                         pae, pl, raw = infer_hf(model, tok, full, pos, a.device, rc)
                     except Exception as e:
                         if "out of memory" not in str(e).lower():
-                            print(f"[FAIL] {tag}: {type(e).__name__}: {e}"); continue
+                            print(f"[FAIL] {tag}: {type(e).__name__}: {e}", flush=True); continue
                         if a.device == "cuda":
                             torch.cuda.empty_cache()
                         small = max(8, a.chunk // 4)
-                        print(f"[OOM] {tag}: 改用 chunk={small} 重試")
+                        print(f"[OOM] {tag}: 改用 chunk={small} 重試", flush=True)
                         model.trunk.set_chunk_size(small)
                         try:
                             pae, pl, raw = infer_hf(model, tok, full, pos, a.device, rc)
                         except Exception as e2:
-                            print(f"[FAIL] {tag}: {type(e2).__name__}: {e2}"); continue
+                            print(f"[FAIL] {tag}: {type(e2).__name__}: {e2}", flush=True); continue
                         finally:
-                            # chunk 0 代表不分塊，必須還原成 None 而非 0
                             model.trunk.set_chunk_size(a.chunk or None)
 
                     if a.check_determinism and first:
                         pae2 = infer_hf(model, tok, full, pos, a.device, rc)[0]
                         print(f"[determinism] 同設定跑兩次 PAE 最大差 "
                               f"{np.abs(pae - pae2).max():.3e}  "
-                              f"（≈0 即證明 seed 無效，需用變體測穩定度）")
+                              f"（≈0 即證明 seed 無效，需用變體測穩定度）", flush=True)
                         first = False
 
                     pae, pl = pae[np.ix_(keep, keep)], pl[keep]
                     try:
                         pdb = clean_pdb(raw, lab)
                     except ValueError as e:
-                        print(f"[FAIL] {tag}: PDB 清理失敗：{e}"); continue
+                        print(f"[FAIL] {tag}: PDB 清理失敗：{e}", flush=True); continue
                     meta = _write_outputs(a.out, tag, pdb, pae, pl, pairs, labels,
                                           vid, rc, lk, order, t0)
                     idx.append({"name": name, "tag": tag, **meta})
+                    json.dump(idx, open(f"{a.out}/index.json", "w", encoding="utf-8"), indent=1)
     json.dump(idx, open(f"{a.out}/index.json", "w", encoding="utf-8"), indent=1)
+    if model is not None:
+        del model, tok
+        gc.collect()
+        if a.device == "cuda":
+            torch.cuda.empty_cache()
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -969,6 +993,8 @@ def _add_fold_args(sp):
                     help="保留給舊指令；ESMFold 推理是確定性的，多值會摺疊成一次")
     sp.add_argument("--chunk", type=int, default=64,
                     help="trunk 分塊大小，省顯存但變慢；0 = 不分塊（40 GB 以上建議）")
+    sp.add_argument("--overwrite", action="store_true",
+                    help="強制重算已存在的輸出檔（預設自動跳過已完成的序列變體以支援斷點續跑）")
 
 
 def main():

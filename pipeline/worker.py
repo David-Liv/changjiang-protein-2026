@@ -174,7 +174,7 @@ def sync_filesystem() -> None:
             pass
 
 
-def flush_drive_and_unassign_gpu(drive_root: pathlib.Path, unassign: bool = True) -> None:
+def flush_drive_and_unassign_gpu(drive_root: pathlib.Path, unassign: bool = True, countdown_sec: int = 15) -> None:
     """Verify results are saved on Google Drive, flush Drive mount, and unassign Colab GPU runtime."""
     sync_filesystem()
     if not drive_root.exists():
@@ -186,26 +186,42 @@ def flush_drive_and_unassign_gpu(drive_root: pathlib.Path, unassign: bool = True
 
     saved_files = [p for p in (drive_root / "runs").rglob("*") if p.is_file()] if (drive_root / "runs").exists() else []
     print(f"\n=== [Auto-Save Verification] {len(saved_files)} files persisted under {drive_root / 'runs'} ===")
+    if len(saved_files) == 0:
+        print("[SAFEGUARD] No output files found in runs/ — skipping GPU unassign!")
+        return
+
+    if unassign and countdown_sec > 0:
+        print(
+            f"\n⏳ 任務已全部完成並寫入 Google Drive！將在 {countdown_sec} 秒後自動釋放 GPU 以節省 1,000 CU 額度..."
+            "\n   （若想留在 Notebook 查看結果，請在倒數結束前按上方『停止 ■』鍵即可保留連線）",
+            flush=True,
+        )
+        try:
+            for remaining in range(countdown_sec, 0, -5):
+                print(f"   倒數 {remaining} 秒...", flush=True)
+                time.sleep(min(5, remaining))
+        except KeyboardInterrupt:
+            print("\n✋ 已取消自動斷開 GPU，當前 Colab 連線保留。")
+            return
 
     try:
         from google.colab import drive  # type: ignore
 
-        print("Flushing Google Drive FUSE buffers (drive.flush_and_unmount)...")
+        print("Flushing Google Drive FUSE buffers (drive.flush_and_unmount)...", flush=True)
         drive.flush_and_unmount()
-        print("Google Drive safely flushed and unmounted ✓")
+        print("Google Drive safely flushed and unmounted ✓", flush=True)
     except Exception as e:
-        print(f"[Info] Google Drive unmount skipped (not in Colab or already unmounted: {e})")
+        print(f"[Info] Google Drive unmount skipped (not in Colab or already unmounted: {e})", flush=True)
 
     if unassign:
         try:
             from google.colab import runtime  # type: ignore
 
-            print("Releasing Colab GPU runtime now (runtime.unassign()) to save your 1,000 CU quota...")
-            sys.stdout.flush()
-            time.sleep(2)
+            print("Releasing Colab GPU runtime now (runtime.unassign())...", flush=True)
+            time.sleep(1)
             runtime.unassign()
         except Exception as e:
-            print(f"[Info] runtime.unassign() skipped (not running inside Google Colab: {e})")
+            print(f"[Info] runtime.unassign() skipped (not running inside Google Colab: {e})", flush=True)
 
 
 def extract_target_sequence_from_pdb(pdb_path: pathlib.Path) -> str:
@@ -362,15 +378,21 @@ def run_calibration_job(job: dict[str, Any], run_dir: pathlib.Path, log_fn, dry_
 
     def run_step(desc: str, args_list: list[str]) -> bool:
         log_fn(f"=== {desc} ===")
-        proc = subprocess.run(
-            [sys.executable, script_path] + args_list,
-            capture_output=True,
+        proc = subprocess.Popen(
+            [sys.executable, "-u", script_path] + args_list,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             text=True,
             encoding="utf-8",
             errors="replace",
+            bufsize=1,
         )
-        out = (proc.stdout or "") + (proc.stderr or "")
-        log_fn(out.strip())
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            clean = line.rstrip("\r\n")
+            if clean:
+                log_fn(clean)
+        proc.wait()
         return proc.returncode == 0
 
     if not run_step("1a. Selftest (9 mathematical & PDB checks)", ["selftest"]):
@@ -471,9 +493,10 @@ def process_job(job_path: pathlib.Path, drive_root: pathlib.Path, dry_run: bool 
     stage = job.get("stage", "generation")
 
     running_path = dirs["running"] / job_path.name
+    is_resumed = job_path.resolve() == running_path.resolve()
     if job_path.parent == dirs["pending"]:
         shutil.move(str(job_path), str(running_path))
-    else:
+    elif not is_resumed:
         shutil.copy2(str(job_path), str(running_path))
 
     run_dir_name = "target2_TNFa_calibration" if stage == "evaluation_calibration" else job_id
@@ -484,13 +507,14 @@ def process_job(job_path: pathlib.Path, drive_root: pathlib.Path, dry_run: bool 
     def log(msg: str) -> None:
         stamp = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         line = f"[{stamp}] {msg}"
-        print(line)
+        print(line, flush=True)
         with log_file.open("a", encoding="utf-8") as lf:
             lf.write(line + "\n")
 
     gpu_info = inspect_gpu_environment()
+    action_str = "Resuming interrupted job" if is_resumed else "Starting job"
     log(
-        f"Starting job {job_id} (stage={stage}, submitted_by={job.get('submitted_by', 'unknown')}) | "
+        f"{action_str} {job_id} (stage={stage}, submitted_by={job.get('submitted_by', 'unknown')}) | "
         f"GPU={gpu_info['gpu_name']} ({gpu_info['vram_gb']} GB, {gpu_info['sm_arch']}, "
         f"~{gpu_info['est_cu_per_hour']} CU/hr on 1,000 CU Ultra 5x quota)"
     )
@@ -498,6 +522,7 @@ def process_job(job_path: pathlib.Path, drive_root: pathlib.Path, dry_run: bool 
         log(f"[GPU WARNING] {gpu_info['warning']}")
 
     ok = False
+    interrupted = False
     try:
         if stage == "generation" and not dry_run and not gpu_info["bindcraft_compatible"]:
             log(
@@ -554,8 +579,15 @@ def process_job(job_path: pathlib.Path, drive_root: pathlib.Path, dry_run: bool 
                     "--advanced",
                     "/content/BindCraft/settings_advanced/default_4stage_multimer.json",
                 ]
-                proc = subprocess.run(bc_cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
-                log((proc.stdout or "") + (proc.stderr or ""))
+                proc = subprocess.Popen(
+                    bc_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace", bufsize=1
+                )
+                assert proc.stdout is not None
+                for line in proc.stdout:
+                    clean = line.rstrip("\r\n")
+                    if clean:
+                        log(clean)
+                proc.wait()
                 if proc.returncode != 0:
                     log(f"WARNING: BindCraft exited with return code {proc.returncode}; harvesting any partial outputs.")
             else:
@@ -567,6 +599,10 @@ def process_job(job_path: pathlib.Path, drive_root: pathlib.Path, dry_run: bool 
         log(f"Harvested & evaluated {harvested} candidate sequences into design_registry.csv.")
         ok = True
         return True
+    except KeyboardInterrupt:
+        interrupted = True
+        log(f"Job {job_id} interrupted by user (KeyboardInterrupt). Keeping in jobs/running/ for auto-resume.")
+        raise
     except Exception as exc:
         log(f"FATAL EXCEPTION in job {job_id}: {type(exc).__name__}: {exc}\n{traceback.format_exc()}")
         ok = False
@@ -577,7 +613,7 @@ def process_job(job_path: pathlib.Path, drive_root: pathlib.Path, dry_run: bool 
         manifest = {
             "job_id": job_id,
             "stage": stage,
-            "status": "COMPLETED" if ok else "FAILED",
+            "status": "INTERRUPTED_RESUMABLE" if interrupted else ("COMPLETED" if ok else "FAILED"),
             "gpu_name": gpu_info["gpu_name"],
             "vram_gb": gpu_info["vram_gb"],
             "sm_arch": gpu_info["sm_arch"],
@@ -591,13 +627,14 @@ def process_job(job_path: pathlib.Path, drive_root: pathlib.Path, dry_run: bool 
             )
         except Exception:
             pass
-        dest_dir = dirs["completed"] if ok else dirs["failed"]
-        if running_path.exists():
-            shutil.move(str(running_path), str(dest_dir / job_path.name))
-        log(
-            f"Job {job_id} finalized (ok={ok}, elapsed={elapsed_sec}s, est_CU={est_cu_used}) -> "
-            f"{dest_dir / job_path.name}"
-        )
+        if not interrupted:
+            dest_dir = dirs["completed"] if ok else dirs["failed"]
+            if running_path.exists():
+                shutil.move(str(running_path), str(dest_dir / job_path.name))
+            log(
+                f"Job {job_id} finalized (ok={ok}, elapsed={elapsed_sec}s, est_CU={est_cu_used}) -> "
+                f"{dest_dir / job_path.name}"
+            )
         sync_filesystem()
 
 
@@ -721,23 +758,57 @@ def main() -> None:
     dirs = ensure_drive_workspace(drive_root)
 
     exit_code = 0
+    jobs_completed = 0
+    any_failed = False
     try:
         if args.job_file:
             ok = process_job(pathlib.Path(args.job_file), drive_root, dry_run=args.dry_run)
-            exit_code = 0 if ok else 1
+            if ok:
+                jobs_completed += 1
+            else:
+                any_failed = True
+                exit_code = 1
             return
 
-        print(f"Queue Worker watching: {dirs['pending']}")
+        print(f"Queue Worker watching: {dirs['pending']} (and auto-resuming from {dirs['running']})", flush=True)
         while True:
+            resumed_jobs = sorted(dirs["running"].glob("*.json"))
+            if resumed_jobs:
+                print(
+                    f"[AUTO-RESUME] 檢測到 {len(resumed_jobs)} 個上次中斷的任務於 {dirs['running']}，正在從斷點繼續執行...",
+                    flush=True,
+                )
             pending_jobs = sorted(dirs["pending"].glob("*.json"))
-            for jp in pending_jobs:
-                process_job(jp, drive_root, dry_run=args.dry_run)
+            all_queue = resumed_jobs + pending_jobs
+            if not all_queue and args.once:
+                print(
+                    f"[提示] 當前隊列為空 ({dirs['pending']} 與 {dirs['running']} 均無任務)。"
+                    "請先運行『第 3 格』投遞任務單！",
+                    flush=True,
+                )
+            for jp in all_queue:
+                ok = process_job(jp, drive_root, dry_run=args.dry_run)
+                if ok:
+                    jobs_completed += 1
+                else:
+                    any_failed = True
             if args.once:
                 break
             time.sleep(args.poll_interval)
+    except KeyboardInterrupt:
+        any_failed = True
+        print("\n[中斷] 收到手動停止信號 (KeyboardInterrupt)，任務已保留在 jobs/running/ 以便下次斷點續跑。", flush=True)
     finally:
         if args.unassign_on_exit:
-            flush_drive_and_unassign_gpu(drive_root, unassign=True)
+            if not args.dry_run and jobs_completed > 0 and not any_failed:
+                flush_drive_and_unassign_gpu(drive_root, unassign=True, countdown_sec=15)
+            else:
+                sync_filesystem()
+                print(
+                    f"\n[SAFEGUARD] 未觸發自動斷開 GPU (completed={jobs_completed}, failed_or_stopped={any_failed}, dry_run={args.dry_run})。"
+                    "\n   當前 Colab GPU 連線已保留，方便你檢查日誌或重新投遞任務！",
+                    flush=True,
+                )
 
     sys.exit(exit_code)
 
