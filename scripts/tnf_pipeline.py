@@ -402,9 +402,18 @@ def pick_device(req):
     return "cpu"
 
 
+_HF_CACHE = {}
+
+
 def load_hf(device, chunk, fp16):
     import torch
     from transformers import AutoTokenizer, EsmForProteinFolding
+    key = (device, bool(fp16))
+    if key in _HF_CACHE:
+        tok, m = _HF_CACHE[key]
+        if device == "cuda":
+            m.trunk.set_chunk_size(chunk or None)
+        return tok, m
     tok = AutoTokenizer.from_pretrained("facebook/esmfold_v1")
     m = EsmForProteinFolding.from_pretrained("facebook/esmfold_v1", low_cpu_mem_usage=True)
     m = m.eval()
@@ -413,10 +422,12 @@ def load_hf(device, chunk, fp16):
         if fp16:
             m.esm = m.esm.half()
         torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.allow_tf32 = True
+        torch.backends.cudnn.benchmark = True
     elif device == "mps":
         m = m.to("mps")          # Mac GPU：保持 fp32，fp16 在 MPS 上數值不穩
-    if chunk:
-        m.trunk.set_chunk_size(chunk)
+    m.trunk.set_chunk_size(chunk or None)
+    _HF_CACHE[key] = (tok, m)
     return tok, m
 
 
@@ -430,6 +441,42 @@ def infer_hf(model, tok, full, pos, device, recycles):
     return (out.predicted_aligned_error[0].float().cpu().numpy(),
             plddt_per_res(out.plddt[0].float().cpu().numpy()),
             model.output_to_pdb(out)[0])
+
+
+def infer_hf_batch(model, tok, full_list, pos_list, device, recycles):
+    """對相同總長度的序列進行 Batch 並行推理（無 Padding 零誤差，壓榨 A100 30–36GB 顯存）。"""
+    import torch
+    if len(full_list) == 1:
+        pae, pl, raw = infer_hf(model, tok, full_list[0], pos_list[0], device, recycles)
+        return [(pae, pl, raw)]
+    enc = tok(full_list, return_tensors="pt", add_special_tokens=False)
+    enc = {k: v.to(device) for k, v in enc.items()}
+    enc["position_ids"] = torch.tensor(np.stack(pos_list, axis=0), dtype=torch.long, device=device)
+    with torch.no_grad():
+        out = model(**enc, num_recycles=recycles)
+    pdbs = model.output_to_pdb(out)
+    results = []
+    for b in range(len(full_list)):
+        pae_b = out.predicted_aligned_error[b].float().cpu().numpy()
+        pl_b = plddt_per_res(out.plddt[b].float().cpu().numpy())
+        results.append((pae_b, pl_b, pdbs[b]))
+    return results
+
+
+def _auto_batch_size(device, seq_len):
+    """根據 A100 顯存自動計算並行 Batch 大小，將顯存利用率提升至 30–36 GB。"""
+    if device != "cuda":
+        return 1
+    try:
+        import torch
+        gb = torch.cuda.get_device_properties(0).total_memory / 1e9
+        if gb >= 70:
+            return 8 if seq_len <= 320 else (2 if seq_len <= 700 else 1)
+        if gb >= 38:
+            return 4 if seq_len <= 320 else (1 if seq_len > 450 else 2)
+    except Exception:
+        pass
+    return 1
 
 
 def _is_tag_completed(outdir, tag):
@@ -454,20 +501,21 @@ def _write_outputs(outdir, tag, pdb, pae, pl, pairs, labels, vid, rc, lk, order,
     tot = sum(len(s) for _, s in pairs)
     ok = pae.shape[0] == len(labels) == tot
     print(f"[{'OK ' if ok else '⚠ 長度不符'}] {tag}  pLDDT {meta['mean_plddt']:.1f}  "
-          f"{meta['seconds']:.0f}s  PAE {pae.shape}  鏈長和 {tot}", flush=True)
+          f"{meta['seconds']:.1f}s  PAE {pae.shape}  鏈長和 {tot}", flush=True)
     return meta
 
 
 def cmd_fold(a):
-    import gc, torch
+    import torch
     _seed_warning(a)
     a.device = pick_device(a.device)
     print(f"device = {a.device}   recycles={a.recycles}  linkers={a.linkers}  "
           f"orders={a.chain_orders}", flush=True)
     os.makedirs(a.out, exist_ok=True)
     jobs = read_spec(a.spec)
-    tok = model = None
     idx, first = [], True
+    pending_tasks = []
+
     for name, pairs in jobs:
         for lk in a.linkers:
             for order in a.chain_orders:
@@ -477,7 +525,7 @@ def cmd_fold(a):
                 labels = [lab[i] for i in keep]
                 for rc in a.recycles:
                     vid = f"r{rc}L{lk}" + ("rev" if order == "rev" else "")
-                    tag, t0 = f"{name}__{vid}", time.time()
+                    tag = f"{name}__{vid}"
                     if not getattr(a, "overwrite", False) and _is_tag_completed(a.out, tag):
                         try:
                             meta = json.load(open(f"{a.out}/{tag}.meta.json", encoding="utf-8"))
@@ -486,47 +534,97 @@ def cmd_fold(a):
                             continue
                         except Exception:
                             pass
-                    if model is None:
-                        tok, model = load_hf(a.device, a.chunk, a.fp16)
-                    try:
-                        pae, pl, raw = infer_hf(model, tok, full, pos, a.device, rc)
-                    except Exception as e:
-                        if "out of memory" not in str(e).lower():
-                            print(f"[FAIL] {tag}: {type(e).__name__}: {e}", flush=True); continue
-                        if a.device == "cuda":
-                            torch.cuda.empty_cache()
-                        small = max(8, a.chunk // 4)
-                        print(f"[OOM] {tag}: 改用 chunk={small} 重試", flush=True)
-                        model.trunk.set_chunk_size(small)
-                        try:
-                            pae, pl, raw = infer_hf(model, tok, full, pos, a.device, rc)
-                        except Exception as e2:
-                            print(f"[FAIL] {tag}: {type(e2).__name__}: {e2}", flush=True); continue
-                        finally:
-                            model.trunk.set_chunk_size(a.chunk or None)
+                    pending_tasks.append({
+                        "name": name, "pairs": pairs, "lk": lk, "order": order,
+                        "rc": rc, "vid": vid, "tag": tag, "full": full, "pos": pos,
+                        "lab": lab, "keep": keep, "labels": labels,
+                    })
 
-                    if a.check_determinism and first:
-                        pae2 = infer_hf(model, tok, full, pos, a.device, rc)[0]
-                        print(f"[determinism] 同設定跑兩次 PAE 最大差 "
-                              f"{np.abs(pae - pae2).max():.3e}  "
-                              f"（≈0 即證明 seed 無效，需用變體測穩定度）", flush=True)
-                        first = False
+    if not pending_tasks:
+        json.dump(idx, open(f"{a.out}/index.json", "w", encoding="utf-8"), indent=1)
+        return
 
-                    pae, pl = pae[np.ix_(keep, keep)], pl[keep]
+    tok, model = load_hf(a.device, a.chunk, a.fp16)
+
+    # 將待算任務按 (rc, 序列總長) 排序聚合，讓同長度的不同抗體自動組成 Batch 並行推理
+    if len(pending_tasks) > 1 and not a.check_determinism:
+        pending_tasks.sort(key=lambda x: (x["rc"], len(x["full"])))
+
+    # 依 (rc, 序列總長) 分組進行同長度動態 Batch 並行推理，壓榨 A100 顯存與 Tensor Cores
+    i = 0
+    while i < len(pending_tasks):
+        t_head = pending_tasks[i]
+        bmax = 1 if (a.check_determinism and first) else _auto_batch_size(a.device, len(t_head["full"]))
+        batch = [t_head]
+        j = i + 1
+        while len(batch) < bmax and j < len(pending_tasks):
+            cand = pending_tasks[j]
+            if cand["rc"] == t_head["rc"] and len(cand["full"]) == len(t_head["full"]):
+                batch.append(cand)
+                j += 1
+            else:
+                break
+        i = j
+        t0 = time.time()
+        full_list = [x["full"] for x in batch]
+        pos_list = [x["pos"] for x in batch]
+        rc = t_head["rc"]
+
+        if len(batch) > 1:
+            print(f"[A100 Batch={len(batch)}] 並行推理 {[x['tag'] for x in batch]} (len={len(full_list[0])}, rc={rc})...", flush=True)
+
+        try:
+            batch_outs = infer_hf_batch(model, tok, full_list, pos_list, a.device, rc)
+        except Exception as e:
+            # 若 Batch 推理 OOM，自動退回逐條推理
+            if a.device == "cuda":
+                torch.cuda.empty_cache()
+            batch_outs = []
+            for x in batch:
+                try:
+                    batch_outs.append(infer_hf(model, tok, x["full"], x["pos"], a.device, rc))
+                except Exception as e2:
+                    if "out of memory" not in str(e2).lower():
+                        print(f"[FAIL] {x['tag']}: {type(e2).__name__}: {e2}", flush=True)
+                        batch_outs.append(None)
+                        continue
+                    if a.device == "cuda":
+                        torch.cuda.empty_cache()
+                    small = max(8, a.chunk // 4)
+                    print(f"[OOM] {x['tag']}: 改用 chunk={small} 重試", flush=True)
+                    model.trunk.set_chunk_size(small)
                     try:
-                        pdb = clean_pdb(raw, lab)
-                    except ValueError as e:
-                        print(f"[FAIL] {tag}: PDB 清理失敗：{e}", flush=True); continue
-                    meta = _write_outputs(a.out, tag, pdb, pae, pl, pairs, labels,
-                                          vid, rc, lk, order, t0)
-                    idx.append({"name": name, "tag": tag, **meta})
-                    json.dump(idx, open(f"{a.out}/index.json", "w", encoding="utf-8"), indent=1)
+                        batch_outs.append(infer_hf(model, tok, x["full"], x["pos"], a.device, rc))
+                    except Exception as e3:
+                        print(f"[FAIL] {x['tag']}: {type(e3).__name__}: {e3}", flush=True)
+                        batch_outs.append(None)
+                    finally:
+                        model.trunk.set_chunk_size(a.chunk or None)
+
+        if a.check_determinism and first and batch_outs and batch_outs[0] is not None:
+            pae2 = infer_hf(model, tok, batch[0]["full"], batch[0]["pos"], a.device, rc)[0]
+            print(f"[determinism] 同設定跑兩次 PAE 最大差 "
+                  f"{np.abs(batch_outs[0][0] - pae2).max():.3e}  "
+                  f"（≈0 即證明 seed 無效，需用變體測穩定度）", flush=True)
+            first = False
+
+        for x, out_item in zip(batch, batch_outs):
+            if out_item is None:
+                continue
+            pae, pl, raw = out_item
+            keep = x["keep"]
+            pae, pl = pae[np.ix_(keep, keep)], pl[keep]
+            try:
+                pdb = clean_pdb(raw, x["lab"])
+            except ValueError as e:
+                print(f"[FAIL] {x['tag']}: PDB 清理失敗：{e}", flush=True)
+                continue
+            meta = _write_outputs(a.out, x["tag"], pdb, pae, pl, x["pairs"], x["labels"],
+                                  x["vid"], x["rc"], x["lk"], x["order"], t0)
+            idx.append({"name": x["name"], "tag": x["tag"], **meta})
+            json.dump(idx, open(f"{a.out}/index.json", "w", encoding="utf-8"), indent=1)
+
     json.dump(idx, open(f"{a.out}/index.json", "w", encoding="utf-8"), indent=1)
-    if model is not None:
-        del model, tok
-        gc.collect()
-        if a.device == "cuda":
-            torch.cuda.empty_cache()
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -1056,6 +1154,20 @@ def main():
     r = a.fn(a)
     if a.cmd == "selftest":
         raise SystemExit(0 if r else 1)
+
+
+def run_cli(argv):
+    """供 worker.py 在同一進程內直接調用，讓 ESMFold 常駐顯存免重複載入。"""
+    old_argv = sys.argv
+    try:
+        sys.argv = ["tnf_pipeline.py"] + list(argv)
+        try:
+            main()
+            return True
+        except SystemExit as e:
+            return e.code in (0, None)
+    finally:
+        sys.argv = old_argv
 
 
 if __name__ == "__main__":

@@ -174,6 +174,17 @@ def sync_filesystem() -> None:
             pass
 
 
+def _has_active_ipython_kernel() -> bool:
+    """Return True if running inside the main Colab IPython kernel process (required by runtime.unassign)."""
+    try:
+        import IPython  # type: ignore
+
+        ip = IPython.get_ipython()
+        return ip is not None and getattr(ip, "kernel", None) is not None
+    except Exception:
+        return False
+
+
 def flush_drive_and_unassign_gpu(drive_root: pathlib.Path, unassign: bool = True, countdown_sec: int = 15) -> None:
     """Verify results are saved on Google Drive, flush Drive mount, and unassign Colab GPU runtime."""
     sync_filesystem()
@@ -188,6 +199,14 @@ def flush_drive_and_unassign_gpu(drive_root: pathlib.Path, unassign: bool = True
     print(f"\n=== [Auto-Save Verification] {len(saved_files)} files persisted under {drive_root / 'runs'} ===")
     if len(saved_files) == 0:
         print("[SAFEGUARD] No output files found in runs/ — skipping GPU unassign!")
+        return
+
+    if unassign and not _has_active_ipython_kernel():
+        print(
+            "[Info] Current process is a shell subprocess without an active IPython kernel; "
+            "deferring drive.flush_and_unmount() and runtime.unassign() to the parent Colab Notebook cell.",
+            flush=True,
+        )
         return
 
     if unassign and countdown_sec > 0:
@@ -442,24 +461,42 @@ def run_calibration_job(job: dict[str, Any], run_dir: pathlib.Path, log_fn, dry_
     script_path = str(REPO_ROOT / "scripts" / "tnf_pipeline.py")
     chunk = str(detect_gpu_chunk())
 
+    class _TeeWriter:
+        def __init__(self, orig_stream, log_callback):
+            self.orig = orig_stream
+            self.log_cb = log_callback
+            self._buf = ""
+
+        def write(self, s: str) -> int:
+            self._buf += s
+            while "\n" in self._buf:
+                line, self._buf = self._buf.split("\n", 1)
+                clean = line.rstrip("\r")
+                if clean:
+                    self.log_cb(clean)
+            return len(s)
+
+        def flush(self) -> None:
+            if self._buf.strip():
+                self.log_cb(self._buf.rstrip("\r\n"))
+                self._buf = ""
+            self.orig.flush()
+
     def run_step(desc: str, args_list: list[str]) -> bool:
         log_fn(f"=== {desc} ===")
-        proc = subprocess.Popen(
-            [sys.executable, "-u", script_path] + args_list,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            bufsize=1,
-        )
-        assert proc.stdout is not None
-        for line in proc.stdout:
-            clean = line.rstrip("\r\n")
-            if clean:
-                log_fn(clean)
-        proc.wait()
-        return proc.returncode == 0
+        orig_out, orig_err = sys.stdout, sys.stderr
+        tee = _TeeWriter(orig_out, log_fn)
+        try:
+            sys.stdout = tee  # type: ignore
+            sys.stderr = tee  # type: ignore
+            return bool(tp.run_cli(args_list))
+        except Exception as e:
+            log_fn(f"[STEP ERROR] {desc}: {type(e).__name__}: {e}")
+            return False
+        finally:
+            tee.flush()
+            sys.stdout = orig_out
+            sys.stderr = orig_err
 
     if not run_step("1a. Selftest (9 mathematical & PDB checks)", ["selftest"]):
         return False
@@ -639,7 +676,13 @@ def process_job(job_path: pathlib.Path, drive_root: pathlib.Path, dry_run: bool 
         else:
             bindcraft_script = pathlib.Path("/content/BindCraft/bindcraft.py")
             if bindcraft_script.exists():
-                log(f"Launching BindCraft trajectories in {run_dir}...")
+                log(
+                    f"Launching BindCraft trajectories in {run_dir} "
+                    f"(XLA_PYTHON_CLIENT_MEM_FRACTION=0.88, Triton GEMM enabled for A100)..."
+                )
+                bc_env = os.environ.copy()
+                bc_env["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.88"
+                bc_env["XLA_FLAGS"] = "--xla_gpu_enable_triton_gemm=true"
                 bc_cmd = [
                     "conda",
                     "run",
@@ -656,7 +699,14 @@ def process_job(job_path: pathlib.Path, drive_root: pathlib.Path, dry_run: bool 
                     "/content/BindCraft/settings_advanced/default_4stage_multimer.json",
                 ]
                 proc = subprocess.Popen(
-                    bc_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace", bufsize=1
+                    bc_cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    bufsize=1,
+                    env=bc_env,
                 )
                 assert proc.stdout is not None
                 for line in proc.stdout:
@@ -812,7 +862,7 @@ def harvest_bindcraft_candidates(
     return added
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Changjiang Cup 2026 80GB Colab Queue Worker")
     parser.add_argument(
         "--drive-root",
@@ -833,18 +883,18 @@ def main() -> None:
         help="Print Google Drive queue and Target 2 calibration completeness diagnostic and exit",
     )
     parser.add_argument("--poll-interval", type=int, default=15, help="Seconds between queue polls")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     drive_root = pathlib.Path(args.drive_root)
     dirs = ensure_drive_workspace(drive_root)
 
     if args.diagnose:
         print_drive_diagnostic(drive_root)
-        return
+        return 2
 
-    exit_code = 0
     jobs_completed = 0
     any_failed = False
+    already_done_verified = False
     try:
         if args.job_file:
             ok = process_job(pathlib.Path(args.job_file), drive_root, dry_run=args.dry_run)
@@ -852,81 +902,86 @@ def main() -> None:
                 jobs_completed += 1
             else:
                 any_failed = True
-                exit_code = 1
-            return
+        else:
+            print(f"Queue Worker watching: {dirs['pending']} (and auto-resuming from {dirs['running']})", flush=True)
+            auto_recovered_once = False
+            while True:
+                resumed_jobs = sorted(dirs["running"].glob("*.json"))
+                if resumed_jobs:
+                    print(
+                        f"[AUTO-RESUME] 檢測到 {len(resumed_jobs)} 個上次中斷的任務於 {dirs['running']}，正在從斷點繼續執行...",
+                        flush=True,
+                    )
+                pending_jobs = sorted(dirs["pending"].glob("*.json"))
+                all_queue = resumed_jobs + pending_jobs
 
-        print(f"Queue Worker watching: {dirs['pending']} (and auto-resuming from {dirs['running']})", flush=True)
-        auto_recovered_once = False
-        while True:
-            resumed_jobs = sorted(dirs["running"].glob("*.json"))
-            if resumed_jobs:
-                print(
-                    f"[AUTO-RESUME] 檢測到 {len(resumed_jobs)} 個上次中斷的任務於 {dirs['running']}，正在從斷點繼續執行...",
-                    flush=True,
-                )
-            pending_jobs = sorted(dirs["pending"].glob("*.json"))
-            all_queue = resumed_jobs + pending_jobs
+                if not all_queue and not auto_recovered_once:
+                    auto_recovered_once = True
+                    # Self-healing check: did an earlier run move job_target2_TNFa_calibration.json to completed/failed prematurely?
+                    cal_dir = dirs["runs"] / "target2_TNFa_calibration"
+                    comp_job = dirs["completed"] / "job_target2_TNFa_calibration.json"
+                    fail_job = dirs["failed"] / "job_target2_TNFa_calibration.json"
+                    tmpl_job = REPO_ROOT / "jobs" / "templates" / "job_target2_TNFa_calibration.json"
+                    if cal_dir.exists() or comp_job.exists() or fail_job.exists():
+                        is_done, _, missing_items = check_calibration_completeness(cal_dir)
+                        if not is_done and tmpl_job.exists():
+                            recovered = dirs["running"] / "job_target2_TNFa_calibration.json"
+                            shutil.copy2(str(tmpl_job), str(recovered))
+                            for old_p in (comp_job, fail_job):
+                                if old_p.exists():
+                                    old_p.unlink()
+                            print(
+                                f"[AUTO-RECOVER] 檢測到上次 TNF-α 校準任務未跑完全部階段（待完成：{missing_items}）！\n"
+                                f"               已自動將任務從 completed/failed 恢復至 {recovered} 並從斷點繼續執行...",
+                                flush=True,
+                            )
+                            all_queue = [recovered]
+                        elif is_done and args.once:
+                            already_done_verified = True
+                            print_drive_diagnostic(drive_root)
+                            print(
+                                "🎉 [100% 已完成] Target 2 (TNF-α) 全部校準實驗已在上次運行中 100% 完成並保存在 Google Drive！無需重複消耗 GPU 額度。",
+                                flush=True,
+                            )
 
-            if not all_queue and not auto_recovered_once:
-                auto_recovered_once = True
-                # Self-healing check: did an earlier run move job_target2_TNFa_calibration.json to completed/failed prematurely?
-                cal_dir = dirs["runs"] / "target2_TNFa_calibration"
-                comp_job = dirs["completed"] / "job_target2_TNFa_calibration.json"
-                fail_job = dirs["failed"] / "job_target2_TNFa_calibration.json"
-                tmpl_job = REPO_ROOT / "jobs" / "templates" / "job_target2_TNFa_calibration.json"
-                if cal_dir.exists() or comp_job.exists() or fail_job.exists():
-                    is_done, _, missing_items = check_calibration_completeness(cal_dir)
-                    if not is_done and tmpl_job.exists():
-                        recovered = dirs["running"] / "job_target2_TNFa_calibration.json"
-                        shutil.copy2(str(tmpl_job), str(recovered))
-                        for old_p in (comp_job, fail_job):
-                            if old_p.exists():
-                                old_p.unlink()
-                        print(
-                            f"[AUTO-RECOVER] 檢測到上次 TNF-α 校準任務未跑完全部階段（待完成：{missing_items}）！\n"
-                            f"               已自動將任務從 completed/failed 恢復至 {recovered} 並從斷點繼續執行...",
-                            flush=True,
-                        )
-                        all_queue = [recovered]
-                    elif is_done and args.once:
-                        print_drive_diagnostic(drive_root)
-                        print(
-                            "🎉 [100% 已完成] Target 2 (TNF-α) 全部校準實驗已在上次運行中 100% 完成並保存在 Google Drive！無需重複消耗 GPU 額度。",
-                            flush=True,
-                        )
-
-            if not all_queue and args.once:
-                print(
-                    f"[提示] 當前隊列為空 ({dirs['pending']} 與 {dirs['running']} 均無待執行任務)。"
-                    "若需投遞新任務，請運行『第 3 格』！",
-                    flush=True,
-                )
-            for jp in all_queue:
-                ok = process_job(jp, drive_root, dry_run=args.dry_run)
-                if ok:
-                    jobs_completed += 1
-                else:
-                    any_failed = True
-            if args.once:
-                break
-            time.sleep(args.poll_interval)
+                if not all_queue and args.once:
+                    print(
+                        f"[提示] 當前隊列為空 ({dirs['pending']} 與 {dirs['running']} 均無待執行任務)。"
+                        "若需投遞新任務，請運行『第 3 格』！",
+                        flush=True,
+                    )
+                for jp in all_queue:
+                    ok = process_job(jp, drive_root, dry_run=args.dry_run)
+                    if ok:
+                        jobs_completed += 1
+                    else:
+                        any_failed = True
+                if args.once:
+                    break
+                time.sleep(args.poll_interval)
     except KeyboardInterrupt:
         any_failed = True
         print("\n[中斷] 收到手動停止信號 (KeyboardInterrupt)，任務已保留在 jobs/running/ 以便下次斷點續跑。", flush=True)
     finally:
+        ready_to_unassign = not args.dry_run and not any_failed and (jobs_completed > 0 or already_done_verified)
         if args.unassign_on_exit:
-            if not args.dry_run and jobs_completed > 0 and not any_failed:
+            if ready_to_unassign:
                 flush_drive_and_unassign_gpu(drive_root, unassign=True, countdown_sec=15)
             else:
                 sync_filesystem()
                 print(
-                    f"\n[SAFEGUARD] 未觸發自動斷開 GPU (completed={jobs_completed}, failed_or_stopped={any_failed}, dry_run={args.dry_run})。"
+                    f"\n[SAFEGUARD] 未觸發自動斷開 GPU (completed={jobs_completed}, already_done={already_done_verified}, "
+                    f"failed_or_stopped={any_failed}, dry_run={args.dry_run})。"
                     "\n   當前 Colab GPU 連線已保留，方便你檢查日誌或重新投遞任務！",
                     flush=True,
                 )
 
-    sys.exit(exit_code)
+    if any_failed:
+        return 1
+    if not args.dry_run and (jobs_completed > 0 or already_done_verified):
+        return 0
+    return 2
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
