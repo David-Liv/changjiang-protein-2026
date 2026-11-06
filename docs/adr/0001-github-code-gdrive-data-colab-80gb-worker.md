@@ -14,7 +14,7 @@
 1. **Public GitHub Repository (`David-Liv/changjiang-protein-2026`) for Code & Public Target Inputs Only**:
    - All pipeline scripts, validation gates, job templates, and trimmed public PDB structures live in the public GitHub repository so any Colab instance or teammate can run `git clone` / `git pull` without managing tokens.
    - `.gitignore` strictly blocks any candidate sequences, output `.fasta`/`.csv` tables, and run artifacts from entering Git.
-2. **Google Drive (`/content/drive/MyDrive/Changjiang_Cup_2026`) as Private Data Store & Job Queue**:
+2. **Shared Google Drive (`https://drive.google.com/drive/folders/1NPtj9CpPoq1JJX42EZbdp7wfdQ8THsQg?usp=drive_link`) as Private Data Store & Job Queue**:
    - Teammates submit runs by placing JSON job definitions into `jobs/pending/` on the shared Google Drive folder.
    - David's 80GB Colab runs `notebooks/colab_80gb_worker.ipynb`, which pulls the latest code from GitHub, polls `jobs/pending/`, runs pre-validation (`scripts/validate_input.py`), executes generation/evaluation (`BindCraft` + `SolubleMPNN` / `ColabFold`), runs post-validation (`scripts/check_expressibility.py`, `scripts/check_novelty.py`), and writes all outputs and `registry/design_registry.csv` back to Google Drive.
 3. **Initial Tooling Scope**:

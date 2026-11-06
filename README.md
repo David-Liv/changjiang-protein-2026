@@ -8,8 +8,8 @@
 
 | 入口 Notebook | 適用場景 | 一鍵打開 Colab 連結 |
 | :--- | :--- | :--- |
-| **`colab_80gb_worker.ipynb`**<br/>（全靶點隊列總控端） | 自動拉取 GitHub 最新代碼、監聽網盤 `Changjiang_Cup_2026/jobs/pending/` 任務單（支持靶點 2 校準、靶點 5 Minibinder 生成、靶點 1 EGFR 生成）並自動串聯 `ipSAE` 評估與寫回總表 | [Open in Colab (`colab_80gb_worker.ipynb`)](https://colab.research.google.com/github/David-Liv/changjiang-protein-2026/blob/main/notebooks/colab_80gb_worker.ipynb) |
-| **`TNF_ipSAE_colab.ipynb`**<br/>（靶點 2 TNF-α 專項校準） | 生物組定制的 TNF-α 單體 vs 三聚體、正負對照、72 次變體穩定度與晶體疊合（5M2J/1TNF/2AZ5）測試，跑完自動打包 `tnf_calibration_runs.zip` 存入共享網盤 `Changjiang_Cup_2026/runs/target2_TNFa_calibration/` | [Open in Colab (`TNF_ipSAE_colab.ipynb`)](https://colab.research.google.com/github/David-Liv/changjiang-protein-2026/blob/main/notebooks/TNF_ipSAE_colab.ipynb) |
+| **`colab_80gb_worker.ipynb`**<br/>（全靶點隊列總控端） | 自動拉取 GitHub 最新代碼、直連[團隊共享 Google Drive (`1NPtj9CpPoq1JJX42EZbdp7wfdQ8THsQg`)](https://drive.google.com/drive/folders/1NPtj9CpPoq1JJX42EZbdp7wfdQ8THsQg?usp=drive_link) 監聽 `jobs/pending/` 任務單（支持靶點 2 校準、靶點 5 Minibinder 生成、靶點 1 EGFR 生成）並自動串聯 `ipSAE` 評估與寫回總表 | [Open in Colab (`colab_80gb_worker.ipynb`)](https://colab.research.google.com/github/David-Liv/changjiang-protein-2026/blob/main/notebooks/colab_80gb_worker.ipynb) |
+| **`TNF_ipSAE_colab.ipynb`**<br/>（靶點 2 TNF-α 專項校準） | 生物組定制的 TNF-α 單體 vs 三聚體、正負對照、72 次變體穩定度與晶體疊合（5M2J/1TNF/2AZ5）測試，跑完自動打包 `tnf_calibration_runs.zip` 存入[團隊共享網盤 (`1NPtj9CpPoq1JJX42EZbdp7wfdQ8THsQg`)](https://drive.google.com/drive/folders/1NPtj9CpPoq1JJX42EZbdp7wfdQ8THsQg?usp=drive_link) `runs/target2_TNFa_calibration/` | [Open in Colab (`TNF_ipSAE_colab.ipynb`)](https://colab.research.google.com/github/David-Liv/changjiang-protein-2026/blob/main/notebooks/TNF_ipSAE_colab.ipynb) |
 
 ---
 

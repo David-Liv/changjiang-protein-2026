@@ -23,6 +23,7 @@ import hashlib
 import json
 import os
 import pathlib
+import re
 import shutil
 import subprocess
 import sys
@@ -36,6 +37,9 @@ if str(REPO_ROOT / "scripts") not in sys.path:
     sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 import tnf_pipeline as tp  # noqa: E402
+
+SHARED_DRIVE_FOLDER_URL = "https://drive.google.com/drive/folders/1NPtj9CpPoq1JJX42EZbdp7wfdQ8THsQg?usp=drive_link"
+SHARED_DRIVE_FOLDER_ID = "1NPtj9CpPoq1JJX42EZbdp7wfdQ8THsQg"
 
 REGISTRY_HEADERS = [
     "design_id",
@@ -76,9 +80,103 @@ REGISTRY_HEADERS = [
 ]
 
 
+def _extract_drive_folder_id(spec: str) -> str | None:
+    """Extract Google Drive folder ID from a Drive URL, raw ID, or legacy default path."""
+    s = str(spec).strip()
+    m = re.search(r"folders/([a-zA-Z0-9_-]{15,})", s)
+    if m:
+        return m.group(1)
+    if re.fullmatch(r"[a-zA-Z0-9_-]{25,45}", s):
+        return s
+    if s.rstrip("/") == "/content/drive/MyDrive/Changjiang_Cup_2026":
+        return SHARED_DRIVE_FOLDER_ID
+    return None
+
+
+def resolve_shared_drive_workspace(drive_spec: str | pathlib.Path) -> pathlib.Path:
+    """Resolve the exact shared Google Drive folder (ID: 1NPtj9CpPoq1JJX42EZbdp7wfdQ8THsQg) without ever creating a private folder."""
+    spec_str = str(drive_spec).strip()
+    folder_id = _extract_drive_folder_id(spec_str)
+    colab_drive = pathlib.Path("/content/drive")
+
+    # Local unit-test / non-Colab path
+    if not colab_drive.exists() and not spec_str.startswith("/content/drive") and not spec_str.startswith("http"):
+        return pathlib.Path(spec_str)
+
+    if folder_id:
+        id_target = colab_drive / ".shortcut-targets-by-id" / folder_id
+        resolved: pathlib.Path | None = None
+        if id_target.exists():
+            subdirs = [p for p in id_target.iterdir() if p.is_dir()]
+            resolved = subdirs[0] if len(subdirs) == 1 else id_target
+        else:
+            # Scan MyDrive for any shortcut symlink pointing to this folder_id
+            mydrive = colab_drive / "MyDrive"
+            if mydrive.exists():
+                for item in mydrive.iterdir():
+                    try:
+                        if item.is_symlink() and folder_id in str(item.resolve()):
+                            resolved = item.resolve()
+                            break
+                    except Exception:
+                        continue
+
+        if resolved is None or not resolved.exists():
+            raise FileNotFoundError(
+                f"\n❌ 未能在當前掛載的 Google Drive 中定位到團隊共享資料夾 (ID: {folder_id})！\n"
+                f"   共享連結：{SHARED_DRIVE_FOLDER_URL}\n"
+                "   【重要保護】為防止程式在你的私人雲端硬碟誤建新資料夾，已攔截自動 mkdir！\n"
+                "   👉 一次性解決方法（只需做 1 次，5 秒鐘）：\n"
+                f"      1. 點開上方共享連結：{SHARED_DRIVE_FOLDER_URL}\n"
+                "      2. 點擊頂部資料夾名稱右側箭頭（或對該資料夾按右鍵）-> 選擇『整理 (Organize) -> 新增捷徑 (Add shortcut)』\n"
+                "      3. 選擇『所有位置 -> 我的雲端硬碟 (My Drive)』並點擊『新增』，然後重新執行此格即可！"
+            )
+
+        # Auto-migrate any stranded files from accidental private folder /content/drive/MyDrive/Changjiang_Cup_2026
+        legacy_private = colab_drive / "MyDrive" / "Changjiang_Cup_2026"
+        try:
+            if legacy_private.exists() and not legacy_private.is_symlink() and legacy_private.resolve() != resolved.resolve():
+                migrated = 0
+                for sub in ("jobs", "runs", "registry"):
+                    src_sub = legacy_private / sub
+                    if src_sub.exists():
+                        for src_file in src_sub.rglob("*"):
+                            if src_file.is_file():
+                                rel = src_file.relative_to(legacy_private)
+                                dst_file = resolved / rel
+                                if not dst_file.exists():
+                                    dst_file.parent.mkdir(parents=True, exist_ok=True)
+                                    shutil.copy2(str(src_file), str(dst_file))
+                                    migrated += 1
+                if migrated > 0:
+                    print(
+                        f"🔄 [AUTO-MIGRATE] 已自動將私人資料夾 ({legacy_private}) 中的 {migrated} 個檔案同步合併至共享資料夾 ({resolved})！",
+                        flush=True,
+                    )
+        except Exception:
+            pass
+
+        return resolved
+
+    p = pathlib.Path(spec_str)
+    if str(p).startswith("/content/drive") and not p.exists():
+        raise FileNotFoundError(
+            f"❌ 指定的 Google Drive 路徑不存在：{p}\n"
+            f"   為避免自動創建私人資料夾，請確認共享資料夾 {SHARED_DRIVE_FOLDER_URL} 已新增捷徑至『我的雲端硬碟』！"
+        )
+    return p
+
+
 def ensure_drive_workspace(drive_root: pathlib.Path) -> dict[str, pathlib.Path]:
-    """Create standard queue and registry folders on Google Drive."""
+    """Create standard queue and registry subfolders inside the verified shared Google Drive folder."""
+    drive_root = resolve_shared_drive_workspace(drive_root)
+    if not str(drive_root).startswith("/content/drive"):
+        drive_root.mkdir(parents=True, exist_ok=True)
+    elif not drive_root.exists():
+        raise FileNotFoundError(f"Shared Google Drive root does not exist: {drive_root}")
+
     dirs = {
+        "root": drive_root,
         "pending": drive_root / "jobs" / "pending",
         "running": drive_root / "jobs" / "running",
         "completed": drive_root / "jobs" / "completed",
@@ -86,8 +184,9 @@ def ensure_drive_workspace(drive_root: pathlib.Path) -> dict[str, pathlib.Path]:
         "runs": drive_root / "runs",
         "registry": drive_root / "registry",
     }
-    for d in dirs.values():
-        d.mkdir(parents=True, exist_ok=True)
+    for k, d in dirs.items():
+        if k != "root":
+            d.mkdir(parents=True, exist_ok=True)
 
     reg_csv = dirs["registry"] / "design_registry.csv"
     if not reg_csv.exists():
@@ -223,21 +322,13 @@ def flush_drive_and_unassign_gpu(drive_root: pathlib.Path, unassign: bool = True
             print("\n✋ 已取消自動斷開 GPU，當前 Colab 連線保留。")
             return
 
-    try:
-        from google.colab import drive  # type: ignore
-
-        print("Flushing Google Drive FUSE buffers (drive.flush_and_unmount)...", flush=True)
-        drive.flush_and_unmount()
-        print("Google Drive safely flushed and unmounted ✓", flush=True)
-    except Exception as e:
-        print(f"[Info] Google Drive unmount skipped (not in Colab or already unmounted: {e})", flush=True)
-
+    sync_filesystem()
     if unassign:
         try:
             from google.colab import runtime  # type: ignore
 
-            print("Releasing Colab GPU runtime now (runtime.unassign())...", flush=True)
-            time.sleep(1)
+            print("Flushing OS buffers and releasing Colab GPU runtime now (runtime.unassign())...", flush=True)
+            time.sleep(2)
             runtime.unassign()
         except Exception as e:
             print(f"[Info] runtime.unassign() skipped (not running inside Google Colab: {e})", flush=True)
@@ -866,8 +957,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Changjiang Cup 2026 80GB Colab Queue Worker")
     parser.add_argument(
         "--drive-root",
-        default="/content/drive/MyDrive/Changjiang_Cup_2026",
-        help="Path to the shared Google Drive workspace folder",
+        default=SHARED_DRIVE_FOLDER_URL,
+        help="Shared Google Drive folder URL, folder ID (1NPtj9CpPoq1JJX42EZbdp7wfdQ8THsQg), or mounted path",
     )
     parser.add_argument("--job-file", help="Run a specific job JSON file immediately")
     parser.add_argument("--once", action="store_true", help="Process current pending jobs once and exit")
@@ -885,8 +976,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--poll-interval", type=int, default=15, help="Seconds between queue polls")
     args = parser.parse_args(argv)
 
-    drive_root = pathlib.Path(args.drive_root)
-    dirs = ensure_drive_workspace(drive_root)
+    dirs = ensure_drive_workspace(pathlib.Path(args.drive_root))
+    drive_root = dirs["root"]
 
     if args.diagnose:
         print_drive_diagnostic(drive_root)

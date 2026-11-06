@@ -8,7 +8,7 @@ This repository houses the CS team's automated protein design, validation, and e
 
 1. **Never commit generated candidate sequences or experimental scores to Git.**
    - Under Changjiang Cup rules, duplicate sequences across teams are awarded to the **earliest submitter**.
-   - All generated candidate sequences (`.fasta`, `candidates.csv`, `design_registry.csv`), model outputs (`.pdb`, `.zip`), and job logs MUST be written strictly to the shared Google Drive workspace (`/content/drive/MyDrive/Changjiang_Cup_2026`).
+   - All generated candidate sequences (`.fasta`, `candidates.csv`, `design_registry.csv`), model outputs (`.pdb`, `.zip`), and job logs MUST be written strictly to the shared Google Drive workspace (`https://drive.google.com/drive/folders/1NPtj9CpPoq1JJX42EZbdp7wfdQ8THsQg?usp=drive_link`, resolved on Colab via `/content/drive/.shortcut-targets-by-id/1NPtj9CpPoq1JJX42EZbdp7wfdQ8THsQg/`).
 2. **Enforce Pre-Run and Post-Run Quality Gates.**
    - Before running any generation batch, run `scripts/validate_input.py` to verify target SHA-256 hashes, hotspot chain/residue existence, and atomic completeness.
    - Inverse folding MUST use **SolubleMPNN** (SOP §C-4).
