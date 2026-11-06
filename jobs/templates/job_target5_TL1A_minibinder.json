@@ -4,7 +4,7 @@
   "molecule_type": "minibinder",
   "submitted_by": "David",
   "target_pdb_relpath": "targets/target5_TL1A/targets/t1_2RE9_chainA.pdb",
-  "expected_sha256": "69e31cbc88fe26fa407a20b3959eff14b74716b08f9988b9bfb5ade748ced9eb",
+  "expected_sha256": "da423bac3dd157bc5956ecf30495fab15cb9f9c53e2e57f3ea2b2314f74d4a57",
   "chains": "A",
   "hotspots": "A33,A86,A88,A148,A150",
   "lengths": [55, 85],

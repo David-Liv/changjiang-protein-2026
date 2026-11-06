@@ -28,9 +28,13 @@ def main():
     p.add_argument("--strict-sidechains",action="store_true",help="將晶體結構缺失側鏈原子的殘基也視為硬錯誤")
     a=p.parse_args(); fails=[]; warns=[]
 
-    # 斷言 5：靶點檔案雜湊值與登錄表一致（防無痕修改）
-    got=hashlib.sha256(open(a.target,"rb").read()).hexdigest()
-    if a.sha and got!=a.sha:
+    # 斷言 5：靶點檔案雜湊值與登錄表一致（防無痕修改；同時相容 Windows CRLF 與 Linux LF 換行符）
+    raw_bytes=open(a.target,"rb").read()
+    got=hashlib.sha256(raw_bytes).hexdigest()
+    lf_bytes=raw_bytes.replace(b"\r\n",b"\n")
+    got_lf=hashlib.sha256(lf_bytes).hexdigest()
+    got_crlf=hashlib.sha256(lf_bytes.replace(b"\n",b"\r\n")).hexdigest()
+    if a.sha and a.sha not in (got, got_lf, got_crlf):
         fails.append(f"[5] 靶點檔案 SHA-256 不符\n      實得 {got}\n      登錄 {a.sha}")
     print(f"  靶點 SHA-256: {got}")
 
