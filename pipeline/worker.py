@@ -663,29 +663,46 @@ def run_calibration_job(job: dict[str, Any], run_dir: pathlib.Path, log_fn, dry_
     return all_steps_ok and is_done
 
 
-def write_bindcraft_settings(job: dict[str, Any], target_pdb: pathlib.Path, run_dir: pathlib.Path) -> pathlib.Path:
-    """Create BindCraft target_settings.json for this job."""
+def write_bindcraft_settings(
+    job: dict[str, Any], target_pdb: pathlib.Path, run_dir: pathlib.Path
+) -> tuple[pathlib.Path, pathlib.Path]:
+    """Create BindCraft target_settings.json and patched advanced_settings.json for this job."""
     lengths = job.get("lengths", [55, 85])
     hotspots = job.get("hotspots")
     if hotspots in ("", "null", "None", None):
-        hotspots_val = None
+        hotspots_val = ""
     else:
         hotspots_val = str(hotspots)
 
     settings = {
-        "design_path": str(run_dir),
+        "design_path": str(run_dir).rstrip("/") + "/",
         "binder_name": job["job_id"],
         "starting_pdb": str(target_pdb),
         "chains": job.get("chains", "A"),
         "target_hotspot_residues": hotspots_val,
         "lengths": lengths,
         "number_of_final_designs": int(job.get("number_of_final_designs", 5)),
-        "max_trajectories": int(job.get("max_trajectories", 20)),
-        "use_soluble_mpnn": bool(job.get("use_soluble_mpnn", True)),
     }
     settings_path = run_dir / "target_settings.json"
     settings_path.write_text(json.dumps(settings, indent=2, ensure_ascii=False), encoding="utf-8")
-    return settings_path
+
+    # Patch advanced settings with max_trajectories, SolubleMPNN weights, and AF2 params path
+    default_adv = pathlib.Path("/content/BindCraft/settings_advanced/default_4stage_multimer.json")
+    adv_data: dict[str, Any] = {}
+    if default_adv.exists():
+        try:
+            adv_data = json.loads(default_adv.read_text(encoding="utf-8"))
+        except Exception:
+            adv_data = {}
+    adv_data["max_trajectories"] = int(job.get("max_trajectories", 20))
+    adv_data["enable_mpnn"] = True
+    adv_data["mpnn_weights"] = "soluble" if bool(job.get("use_soluble_mpnn", True)) else "original"
+    if pathlib.Path("/content/BindCraft/params").exists():
+        adv_data["af_params_dir"] = "/content/BindCraft/params/"
+
+    advanced_path = run_dir / "advanced_settings.json"
+    advanced_path.write_text(json.dumps(adv_data, indent=2, ensure_ascii=False), encoding="utf-8")
+    return settings_path, advanced_path
 
 
 def process_job(job_path: pathlib.Path, drive_root: pathlib.Path, dry_run: bool = False) -> bool:
@@ -759,24 +776,49 @@ def process_job(job_path: pathlib.Path, drive_root: pathlib.Path, dry_run: bool 
             log("ERROR: Pre-validation failed. Aborting job.")
             return False
 
-        settings_path = write_bindcraft_settings(job, target_pdb, run_dir)
-        log(f"Wrote BindCraft target settings to {settings_path}")
+        settings_path, advanced_path = write_bindcraft_settings(job, target_pdb, run_dir)
+        log(f"Wrote BindCraft target settings to {settings_path} (and advanced settings to {advanced_path})")
 
+        bc_returncode = 0
         if dry_run:
             log("Dry-run mode enabled: skipping GPU BindCraft invocation.")
         else:
             bindcraft_script = pathlib.Path("/content/BindCraft/bindcraft.py")
-            if bindcraft_script.exists():
+            bindcraft_params = pathlib.Path("/content/BindCraft/params")
+            bc_env_python = pathlib.Path("/content/miniforge3/envs/BindCraft/bin/python")
+            if not bindcraft_script.exists() or not bindcraft_params.exists():
+                interrupted = True
                 log(
-                    f"Launching BindCraft trajectories in {run_dir} "
-                    f"(XLA_PYTHON_CLIENT_MEM_FRACTION=0.88, Triton GEMM enabled for A100)..."
+                    "❌ [ERROR] 尚未安裝 BindCraft + SolubleMPNN + AlphaFold2 權重環境 (/content/BindCraft)！\n"
+                    "   👉 請先在 Notebook 中運行『第 2 格（安裝 BindCraft 環境）』，安裝完成後再直接運行『第 4 格』！\n"
+                    f"   （當前任務 {job_path.name} 已保留在 jobs/running/ 中，裝好第 2 格後不需重跑第 3 格即可自動續跑）"
                 )
-                bc_env = os.environ.copy()
-                bc_env["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.88"
-                bc_env["XLA_FLAGS"] = "--xla_gpu_enable_triton_gemm=true"
+                return False
+
+            log(
+                f"Launching BindCraft trajectories in {run_dir} "
+                f"(XLA_PYTHON_CLIENT_MEM_FRACTION=0.88, Triton GEMM enabled for A100)..."
+            )
+            bc_env = os.environ.copy()
+            bc_env["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.88"
+            bc_env["XLA_FLAGS"] = "--xla_gpu_enable_triton_gemm=true"
+            if bc_env_python.exists():
+                bc_cmd = [
+                    str(bc_env_python),
+                    "-u",
+                    str(bindcraft_script),
+                    "--settings",
+                    str(settings_path),
+                    "--filters",
+                    "/content/BindCraft/settings_filters/default_filters.json",
+                    "--advanced",
+                    str(advanced_path),
+                ]
+            else:
                 bc_cmd = [
                     "conda",
                     "run",
+                    "--no-capture-output",
                     "-n",
                     "BindCraft",
                     "python",
@@ -787,33 +829,38 @@ def process_job(job_path: pathlib.Path, drive_root: pathlib.Path, dry_run: bool 
                     "--filters",
                     "/content/BindCraft/settings_filters/default_filters.json",
                     "--advanced",
-                    "/content/BindCraft/settings_advanced/default_4stage_multimer.json",
+                    str(advanced_path),
                 ]
-                proc = subprocess.Popen(
-                    bc_cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    encoding="utf-8",
-                    errors="replace",
-                    bufsize=1,
-                    env=bc_env,
-                )
-                assert proc.stdout is not None
-                for line in proc.stdout:
-                    clean = line.rstrip("\r\n")
-                    if clean:
-                        log(clean)
-                proc.wait()
-                if proc.returncode != 0:
-                    log(f"WARNING: BindCraft exited with return code {proc.returncode}; harvesting any partial outputs.")
-            else:
-                log(f"Ready for BindCraft execution in {run_dir} (/content/BindCraft not installed in this environment).")
+            proc = subprocess.Popen(
+                bc_cmd,
+                cwd="/content/BindCraft",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                bufsize=1,
+                env=bc_env,
+            )
+            assert proc.stdout is not None
+            for line in proc.stdout:
+                clean = line.rstrip("\r\n")
+                if clean:
+                    log(clean)
+            proc.wait()
+            bc_returncode = int(proc.returncode or 0)
+            if bc_returncode != 0:
+                log(f"WARNING: BindCraft exited with return code {bc_returncode}; checking for any partial outputs.")
 
         harvested = harvest_bindcraft_candidates(
             job, target_pdb, run_dir, dirs["registry"] / "design_registry.csv", dry_run=dry_run
         )
         log(f"Harvested & evaluated {harvested} candidate sequences into design_registry.csv.")
+        if not dry_run and bc_returncode != 0 and harvested == 0:
+            log(f"❌ [ERROR] BindCraft exited with code {bc_returncode} and produced 0 designs. Marking job as failed.")
+            ok = False
+            return False
+
         ok = True
         return True
     except KeyboardInterrupt:
@@ -1008,12 +1055,35 @@ def main(argv: list[str] | None = None) -> int:
 
                 if not all_queue and not auto_recovered_once:
                     auto_recovered_once = True
-                    # Self-healing check: did an earlier run move job_target2_TNFa_calibration.json to completed/failed prematurely?
+                    # 1) Self-healing check for generation jobs (Target 5 / Target 1) falsely marked completed with 0 outputs
+                    for gen_name in ("job_target5_TL1A_minibinder.json", "job_target1_EGFR_vhh.json"):
+                        for src_folder in (dirs["completed"], dirs["failed"]):
+                            cand_job_p = src_folder / gen_name
+                            if cand_job_p.exists():
+                                try:
+                                    jdata = json.loads(cand_job_p.read_text(encoding="utf-8"))
+                                    jid = jdata.get("job_id", cand_job_p.stem)
+                                    rdir = dirs["runs"] / jid
+                                    has_csv = (rdir / "final_design_stats.csv").exists() or (rdir / "trajectory_stats.csv").exists()
+                                    has_pdb = any(rdir.rglob("*.pdb")) if rdir.exists() else False
+                                    if not has_csv and not has_pdb:
+                                        recovered_gen = dirs["running"] / gen_name
+                                        shutil.move(str(cand_job_p), str(recovered_gen))
+                                        print(
+                                            f"[AUTO-RECOVER] 檢測到生成任務 {gen_name} 上次未實際運行 BindCraft（產出 0 個結構），\n"
+                                            f"               已自動將其從 {src_folder.name}/ 恢復至 {recovered_gen} 準備執行！",
+                                            flush=True,
+                                        )
+                                        all_queue.append(recovered_gen)
+                                except Exception:
+                                    pass
+
+                    # 2) Self-healing check: did an earlier run move job_target2_TNFa_calibration.json to completed/failed prematurely?
                     cal_dir = dirs["runs"] / "target2_TNFa_calibration"
                     comp_job = dirs["completed"] / "job_target2_TNFa_calibration.json"
                     fail_job = dirs["failed"] / "job_target2_TNFa_calibration.json"
                     tmpl_job = REPO_ROOT / "jobs" / "templates" / "job_target2_TNFa_calibration.json"
-                    if cal_dir.exists() or comp_job.exists() or fail_job.exists():
+                    if not all_queue and (cal_dir.exists() or comp_job.exists() or fail_job.exists()):
                         is_done, _, missing_items = check_calibration_completeness(cal_dir)
                         if not is_done and tmpl_job.exists():
                             recovered = dirs["running"] / "job_target2_TNFa_calibration.json"
