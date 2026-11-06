@@ -793,7 +793,25 @@ def process_job(job_path: pathlib.Path, drive_root: pathlib.Path, dry_run: bool 
             bindcraft_script = pathlib.Path("/content/BindCraft/bindcraft.py")
             bindcraft_params = pathlib.Path("/content/BindCraft/params")
             bc_env_python = pathlib.Path("/content/miniforge3/envs/BindCraft/bin/python")
-            if not bindcraft_script.exists() or not bindcraft_params.exists():
+            misplaced_params = pathlib.Path("/content/params")
+            if (
+                bindcraft_script.exists()
+                and not (bindcraft_params / "params_model_1_ptm.npz").exists()
+                and (misplaced_params / "params_model_1_ptm.npz").exists()
+            ):
+                log("🔧 [AUTO-REPAIR] 偵測到 AlphaFold2 權重位於 /content/params，正在自動移入 /content/BindCraft/params ...")
+                if bindcraft_params.exists():
+                    shutil.rmtree(bindcraft_params)
+                shutil.move(str(misplaced_params), str(bindcraft_params))
+            for _bin_rel in ("functions/dssp", "functions/DAlphaBall.gcc"):
+                _bin_p = pathlib.Path("/content/BindCraft") / _bin_rel
+                if _bin_p.exists():
+                    try:
+                        _bin_p.chmod(0o755)
+                    except Exception:
+                        pass
+
+            if not bindcraft_script.exists() or not (bindcraft_params / "params_model_1_ptm.npz").exists():
                 interrupted = True
                 log(
                     "❌ [ERROR] 尚未安裝 BindCraft + SolubleMPNN + AlphaFold2 權重環境 (/content/BindCraft)！\n"
