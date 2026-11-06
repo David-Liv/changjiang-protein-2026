@@ -183,10 +183,17 @@ def ensure_drive_workspace(drive_root: pathlib.Path) -> dict[str, pathlib.Path]:
         "failed": drive_root / "jobs" / "failed",
         "runs": drive_root / "runs",
         "registry": drive_root / "registry",
+        "cache": drive_root / "cache",
     }
     for k, d in dirs.items():
         if k != "root":
             d.mkdir(parents=True, exist_ok=True)
+
+    # Persist HuggingFace ESMFold weights (2.6 GB) on Google Drive cache so they never need re-downloading
+    if str(drive_root).startswith("/content/drive"):
+        hf_cache_dir = dirs["cache"] / "huggingface"
+        hf_cache_dir.mkdir(parents=True, exist_ok=True)
+        os.environ.setdefault("HF_HOME", str(hf_cache_dir))
 
     reg_csv = dirs["registry"] / "design_registry.csv"
     if not reg_csv.exists():
