@@ -104,22 +104,41 @@ def resolve_shared_drive_workspace(drive_spec: str | pathlib.Path) -> pathlib.Pa
         return pathlib.Path(spec_str)
 
     if folder_id:
+        # If running on Colab and /content/drive is not mounted yet, mount it automatically
+        # so users never get a false "Add shortcut" error just because they ran Cell 2/3/4 directly after reconnect.
+        if (pathlib.Path("/content").exists() or "google.colab" in sys.modules) and not (colab_drive / "MyDrive").exists():
+            try:
+                from google.colab import drive as _colab_drive  # type: ignore
+
+                print("🔄 偵測到 A100 重連後尚未掛載 Google Drive，正在自動掛載 /content/drive ...", flush=True)
+                _colab_drive.mount("/content/drive")
+            except Exception as _mount_exc:
+                raise RuntimeError(
+                    f"❌ Google Drive 尚未掛載，且自動掛載失敗 ({_mount_exc})！請先執行 drive.mount('/content/drive')。"
+                ) from _mount_exc
+
+        # Wake up Colab FUSE symlink table by listing MyDrive first
+        mydrive = colab_drive / "MyDrive"
+        if mydrive.exists():
+            try:
+                list(mydrive.iterdir())
+            except Exception:
+                pass
+
         id_target = colab_drive / ".shortcut-targets-by-id" / folder_id
         resolved: pathlib.Path | None = None
         if id_target.exists():
             subdirs = [p for p in id_target.iterdir() if p.is_dir()]
             resolved = subdirs[0] if len(subdirs) == 1 else id_target
-        else:
+        elif mydrive.exists():
             # Scan MyDrive for any shortcut symlink pointing to this folder_id
-            mydrive = colab_drive / "MyDrive"
-            if mydrive.exists():
-                for item in mydrive.iterdir():
-                    try:
-                        if item.is_symlink() and folder_id in str(item.resolve()):
-                            resolved = item.resolve()
-                            break
-                    except Exception:
-                        continue
+            for item in mydrive.iterdir():
+                try:
+                    if item.is_symlink() and folder_id in str(item.resolve()):
+                        resolved = item.resolve()
+                        break
+                except Exception:
+                    continue
 
         if resolved is None or not resolved.exists():
             raise FileNotFoundError(
