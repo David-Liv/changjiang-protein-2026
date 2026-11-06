@@ -807,6 +807,7 @@ def process_job(job_path: pathlib.Path, drive_root: pathlib.Path, dry_run: bool 
                 f"(XLA_PYTHON_CLIENT_MEM_FRACTION=0.88, Triton GEMM enabled for A100)..."
             )
             bc_env = os.environ.copy()
+            bc_env["PATH"] = "/content/miniforge3/envs/BindCraft/bin:/content/miniforge3/bin:" + bc_env.get("PATH", "")
             bc_env["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.88"
             bc_env["XLA_FLAGS"] = "--xla_gpu_enable_triton_gemm=true"
             if bc_env_python.exists():
