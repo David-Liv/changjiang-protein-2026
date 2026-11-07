@@ -351,9 +351,16 @@ def flush_drive_and_unassign_gpu(drive_root: pathlib.Path, unassign: bool = True
     sync_filesystem()
     if unassign:
         try:
+            from google.colab import drive as _colab_drive  # type: ignore
+
+            print("Flushing Google Drive FUSE cache (drive.flush_and_unmount())...", flush=True)
+            _colab_drive.flush_and_unmount()
+        except Exception as e:
+            print(f"[Info] drive.flush_and_unmount() skipped: {e}", flush=True)
+        try:
             from google.colab import runtime  # type: ignore
 
-            print("Flushing OS buffers and releasing Colab GPU runtime now (runtime.unassign())...", flush=True)
+            print("Releasing Colab GPU runtime now (runtime.unassign())...", flush=True)
             time.sleep(2)
             runtime.unassign()
         except Exception as e:
@@ -1019,8 +1026,8 @@ def harvest_bindcraft_candidates(
             "sequence_sha256": seq_sha,
             "length_aa": exp.get("length_aa", len(seq)),
             "fold_pLDDT": row.get("pLDDT") or row.get("Average_pLDDT") or "",
-            "fold_ipTM": row.get("i_pTM") or row.get("ipTM") or "",
-            "fold_iPAE": row.get("i_pAE") or row.get("iPAE") or "",
+            "fold_ipTM": row.get("i_pTM") or row.get("Average_i_pTM") or row.get("ipTM") or "",
+            "fold_iPAE": row.get("i_pAE") or row.get("Average_i_pAE") or row.get("iPAE") or "",
             "esm_plddt": ev.get("esm_plddt", ""),
             "ipsae10_min": ev.get("ipsae10_min", ""),
             "ipsae10_max": ev.get("ipsae10_max", ""),
