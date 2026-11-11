@@ -1,1 +1,2 @@
 69e31cbc88fe26fa407a20b3959eff14b74716b08f9988b9bfb5ade748ced9eb  t1_2RE9_chainA.pdb
+d9120f7a63ba10dfd52f916db2ac5a2e4c16ceb49edf579e4a7b33ae9de9a35b  t2_2RE9_grooveAB_cropped.pdb

@@ -506,7 +506,7 @@ def evaluate_candidates_with_ipsae(
                     results[name] = {
                         "esm_plddt": row.get("mean_plddt", ""),
                         "ipsae10_min": row.get("ipsae10_min", ""),
-                        "ipsae10_max": row.get("ipsae10_max", ""),
+                        "ipsae10_max": row.get("ipsae10_merged_max") or row.get("ipsae10_max", ""),
                         "pdockq": row.get("iface_pdockq", ""),
                         "min_heavy_dist": row.get("iface_min_heavy_dist", ""),
                     }
@@ -954,6 +954,174 @@ def process_job(job_path: pathlib.Path, drive_root: pathlib.Path, dry_run: bool 
         sync_filesystem()
 
 
+def find_candidate_complex_pdb(run_dir: pathlib.Path, design_id: str) -> pathlib.Path | None:
+    """Locate the relaxed complex PDB produced by BindCraft for a given candidate design_id."""
+    search_dirs = [
+        run_dir / "Accepted" / "Ranked",
+        run_dir / "Accepted",
+        run_dir / "MPNN" / "Relaxed",
+    ]
+    for sdir in search_dirs:
+        if not sdir.exists():
+            continue
+        exact = sdir / f"{design_id}_model1.pdb"
+        if exact.exists():
+            return exact
+        matches = sorted(sdir.glob(f"*{design_id}*.pdb"))
+        if matches:
+            return matches[0]
+    return None
+
+
+def count_native_trimer_clashes(
+    complex_pdb: pathlib.Path,
+    binder_seq: str,
+    target_pdb: pathlib.Path,
+    native_trimer_pdb: pathlib.Path,
+) -> int:
+    """Superimpose complex onto native homotrimer (e.g. 2RE9) and count heavy-atom clashes (<2.5A) with omitted chains."""
+    import numpy as np
+
+    AA3_TO_1 = {
+        "ALA": "A", "CYS": "C", "ASP": "D", "GLU": "E", "PHE": "F",
+        "GLY": "G", "HIS": "H", "ILE": "I", "LYS": "K", "LEU": "L",
+        "MET": "M", "ASN": "N", "PRO": "P", "GLN": "Q", "ARG": "R",
+        "SER": "S", "THR": "T", "VAL": "V", "TRP": "W", "TYR": "Y",
+    }
+
+    def _parse(p: pathlib.Path):
+        by_chain: dict[str, list[tuple[int, str, str, Any]]] = {}
+        for ln in p.read_text(encoding="utf-8", errors="replace").splitlines():
+            if ln.startswith("ATOM  ") and ln[16] in (" ", "A"):
+                an = ln[12:16].strip()
+                elem = ln[76:78].strip()
+                if elem == "H" or an.startswith("H") or (len(an) >= 2 and an[0].isdigit() and an[1] == "H"):
+                    continue
+                c = ln[21]
+                r = int(ln[22:26])
+                rn = ln[17:20].strip()
+                xyz = np.array([float(ln[30:38]), float(ln[38:46]), float(ln[46:54])])
+                by_chain.setdefault(c, []).append((r, rn, an, xyz))
+        return by_chain
+
+    tgt_chains = _parse(target_pdb)
+    ref_chains = _parse(native_trimer_pdb)
+    cmp_chains = _parse(complex_pdb)
+    if "A" not in tgt_chains or "A" not in ref_chains or not cmp_chains:
+        return 0
+
+    tgt_A_res = sorted({r for r, _, an, _ in tgt_chains["A"] if an == "CA"})
+    ref_A_ca = {r: xyz for r, _, an, xyz in ref_chains["A"] if an == "CA" and r in tgt_A_res}
+    if len(ref_A_ca) != len(tgt_A_res) or len(tgt_A_res) < 30:
+        return 0
+    Q_ca = np.array([ref_A_ca[r] for r in tgt_A_res])
+
+    # Identify binder chain vs target chain(s) in complex_pdb
+    chain_seqs: dict[str, str] = {}
+    for c, atoms in cmp_chains.items():
+        seen_r: dict[int, str] = {}
+        for r, rn, an, _ in atoms:
+            if an == "CA" and r not in seen_r:
+                seen_r[r] = AA3_TO_1.get(rn, "X")
+        chain_seqs[c] = "".join(seen_r[k] for k in sorted(seen_r))
+
+    binder_c = next((c for c, s in chain_seqs.items() if s == binder_seq), None)
+    if binder_c is None:
+        binder_c = min(chain_seqs.keys(), key=lambda c: abs(len(chain_seqs[c]) - len(binder_seq)))
+
+    target_cas = [xyz for c, atoms in cmp_chains.items() if c != binder_c for _, _, an, xyz in atoms if an == "CA"]
+    if len(target_cas) < len(tgt_A_res):
+        return 0
+    P_ca = np.array(target_cas[: len(tgt_A_res)])
+
+    cP, cQ = P_ca.mean(axis=0), Q_ca.mean(axis=0)
+    U, _, Vt = np.linalg.svd((P_ca - cP).T @ (Q_ca - cQ))
+    R = Vt.T @ np.diag([1.0, 1.0, float(np.linalg.det(Vt.T @ U.T))]) @ U.T
+    rmsd = float(np.sqrt(np.mean(np.sum(((P_ca - cP) @ R.T + cQ - Q_ca) ** 2, axis=1))))
+    if rmsd > 3.5:
+        return 0
+
+    binder_pts = np.array([(xyz - cP) @ R.T + cQ for _, _, _, xyz in cmp_chains[binder_c]])
+    present_ref_chains = set(tgt_chains.keys()) & set(ref_chains.keys())
+    omitted_ref_chains = [c for c in ref_chains.keys() if c not in present_ref_chains]
+    if not omitted_ref_chains:
+        return 0
+
+    omitted_pts = np.array(
+        [xyz for c in omitted_ref_chains for r, _, _, xyz in ref_chains[c] if r in ref_A_ca]
+    )
+    if len(omitted_pts) == 0:
+        return 0
+
+    dists = np.linalg.norm(binder_pts[:, None, :] - omitted_pts[None, :, :], axis=2)
+    return int(np.sum(dists.min(axis=1) < 2.5))
+
+
+def export_alphafold3_server_jobs(
+    records: list[dict[str, Any]],
+    job: dict[str, Any],
+    out_dir: pathlib.Path,
+    batch_size: int = 20,
+) -> list[pathlib.Path]:
+    """Export PASS candidates as AlphaFold 3 Server uploadable JSON files (e.g. 1x Binder + 3x WT TL1A homotrimer)."""
+    passing = [r for r in records if r.get("expressibility_verdict") == "PASS"]
+    if not passing:
+        return []
+
+    af3_tgt_seq = (job.get("af3_target_sequence") or "").strip().upper()
+    af3_copies = int(job.get("af3_target_copies", 1))
+    if not af3_tgt_seq:
+        raw_tseq = (job.get("target_sequence") or "").strip().upper()
+        parts = [p for p in raw_tseq.split(":") if p]
+        if parts and len(set(parts)) == 1:
+            af3_tgt_seq = parts[0]
+            af3_copies = len(parts)
+        elif parts:
+            af3_tgt_seq = parts[0]
+
+    if not af3_tgt_seq:
+        return []
+
+    def _sort_key(r: dict[str, Any]) -> tuple[float, float]:
+        try:
+            ips = float(r.get("ipsae10_max") or 0.0)
+        except ValueError:
+            ips = 0.0
+        try:
+            iptm = float(r.get("fold_ipTM") or 0.0)
+        except ValueError:
+            iptm = 0.0
+        return (-ips, -iptm)
+
+    passing.sort(key=_sort_key)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    job_id = job.get("job_id", "af3_batch")
+    written_files: list[pathlib.Path] = []
+
+    for part_idx in range(0, len(passing), batch_size):
+        chunk = passing[part_idx : part_idx + batch_size]
+        payload = []
+        for rec in chunk:
+            safe_name = re.sub(r"[^A-Za-z0-9_.-]+", "_", str(rec["design_id"]))
+            payload.append(
+                {
+                    "name": safe_name,
+                    "modelSeeds": [],
+                    "sequences": [
+                        {"proteinChain": {"sequence": rec["sequence"], "count": 1}},
+                        {"proteinChain": {"sequence": af3_tgt_seq, "count": af3_copies}},
+                    ],
+                    "dialect": "alphafoldserver",
+                    "version": 1,
+                }
+            )
+        suffix = f"_part{part_idx // batch_size + 1}" if len(passing) > batch_size else ""
+        out_p = out_dir / f"af3_server_{job_id}{suffix}.json"
+        out_p.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+        written_files.append(out_p)
+    return written_files
+
+
 def harvest_bindcraft_candidates(
     job: dict[str, Any],
     target_pdb: pathlib.Path,
@@ -961,13 +1129,20 @@ def harvest_bindcraft_candidates(
     registry_csv: pathlib.Path,
     dry_run: bool = False,
 ) -> int:
-    """Parse BindCraft output CSVs, run expressibility + ESMFold ipSAE/pDockQ checks, and append to registry."""
+    """Parse BindCraft output CSVs, run expressibility + trimer clash + ESMFold ipSAE checks, and export AF3 JSON."""
     stats_files = [
         run_dir / "final_design_stats.csv",
         run_dir / "mpnn_design_stats.csv",
     ]
     target_sha = hashlib.sha256(target_pdb.read_bytes()).hexdigest()
     target_seq = job.get("target_sequence") or extract_target_sequence_from_pdb(target_pdb)
+
+    native_trimer_pdb: pathlib.Path | None = None
+    trimer_rel = job.get("native_trimer_pdb_relpath", "")
+    if trimer_rel:
+        cand_tri = (REPO_ROOT / trimer_rel).resolve()
+        if cand_tri.exists():
+            native_trimer_pdb = cand_tri
 
     existing_ids: set[str] = set()
     if registry_csv.exists():
@@ -1003,9 +1178,19 @@ def harvest_bindcraft_candidates(
     )
 
     added = 0
+    new_records: list[dict[str, Any]] = []
     for design_id, seq, row in raw_rows:
         seq_sha = hashlib.sha256(seq.encode("utf-8")).hexdigest()
         exp = compute_expressibility_metrics(seq)
+        verdict = str(exp.get("expressibility_verdict", ""))
+        if native_trimer_pdb is not None:
+            cmp_pdb = find_candidate_complex_pdb(run_dir, design_id)
+            if cmp_pdb is not None:
+                n_clash = count_native_trimer_clashes(cmp_pdb, seq, target_pdb, native_trimer_pdb)
+                if n_clash > 5:
+                    tag = f"TRIMER_CLASH_{n_clash}"
+                    verdict = f"REJECT:{tag}" if verdict == "PASS" else f"{verdict},{tag}"
+
         ev = ipsae_map.get(design_id, {})
         lengths = job.get("lengths", [0, 0])
         rec = {
@@ -1041,14 +1226,23 @@ def harvest_bindcraft_candidates(
             "cys_count": exp.get("cys_count", ""),
             "cys_parity_ok": exp.get("cys_parity_ok", ""),
             "longest_hydrophobic_run": exp.get("longest_hydrophobic_run", ""),
-            "expressibility_verdict": exp.get("expressibility_verdict", ""),
+            "expressibility_verdict": verdict,
             "created_at": dt.datetime.now().isoformat(timespec="seconds"),
             "submitted": "FALSE",
         }
         with registry_csv.open("a", newline="", encoding="utf-8") as out_f:
             writer = csv.DictWriter(out_f, fieldnames=REGISTRY_HEADERS)
             writer.writerow(rec)
+        new_records.append(rec)
         added += 1
+
+    af3_files = export_alphafold3_server_jobs(new_records, job, run_dir / "af3_inputs")
+    if af3_files:
+        print(
+            f"✅ [AF3 Export] 已自動匯出 {len(af3_files)} 個 AlphaFold 3 Server 批量驗證檔 -> "
+            + ", ".join(str(p) for p in af3_files),
+            flush=True,
+        )
     return added
 
 

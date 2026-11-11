@@ -19,7 +19,7 @@
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Target 1** | **EGFR** | **VHH（奈米抗體）** | 100–150 aa | **pH 6.0 親和力測定** | ✅ 生物組已交付 v2 定版 [`targets/target1_EGFR/`](./targets/target1_EGFR/README.md)（預設使用 `t1_4KRP_domIII.pdb`） |
 | **Target 2** | **TNF-α** | **VHH（奈米抗體）** | 100–150 aa | 無特殊附加條件 | ✅ 已接入單體/三聚體 `ESMFold + ipSAE + pDockQ` 校準管線 [`targets/target2_TNFa/`](./targets/target2_TNFa/README_COLAB.md) |
-| **Target 5** | **TL1A** | **Minibinder（迷你結合蛋白）** | 40–100 aa | 無特殊附加條件 | ✅ 已準備單體零殘缺結構 [`targets/target5_TL1A/`](./targets/target5_TL1A/README.md)（`t1_2RE9_chainA.pdb`） |
+| **Target 5** | **TL1A** | **Minibinder（迷你結合蛋白）** | 40–100 aa | 無特殊附加條件 | ✅ 已升級 v2 雙鏈受體凹槽裁剪加速 + 8×Lys 負向封鎖版 [`targets/target5_TL1A/`](./targets/target5_TL1A/README.md)（`t2_2RE9_grooveAB_cropped.pdb` + 自動匯出 AlphaFold 3 `3:1` 驗證 JSON） |
 
 ---
 

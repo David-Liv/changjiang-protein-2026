@@ -1,15 +1,19 @@
 {
-  "job_id": "job_t5_tl1a_minibinder_001",
+  "job_id": "job_t5_tl1a_grooveAB_002",
   "target_id": "target5_TL1A",
   "molecule_type": "minibinder",
   "submitted_by": "David",
-  "target_pdb_relpath": "targets/target5_TL1A/targets/t1_2RE9_chainA.pdb",
-  "expected_sha256": "da423bac3dd157bc5956ecf30495fab15cb9f9c53e2e57f3ea2b2314f74d4a57",
-  "chains": "A",
-  "hotspots": "A33,A86,A88,A148,A150",
-  "lengths": [55, 85],
-  "number_of_final_designs": 5,
-  "max_trajectories": 20,
+  "target_pdb_relpath": "targets/target5_TL1A/targets/t2_2RE9_grooveAB_cropped.pdb",
+  "native_trimer_pdb_relpath": "targets/target5_TL1A/evidence/2RE9.pdb",
+  "expected_sha256": "d9120f7a63ba10dfd52f916db2ac5a2e4c16ceb49edf579e4a7b33ae9de9a35b",
+  "chains": "A,B",
+  "hotspots": "A52,A87,A137,A138,A167,B317",
+  "lengths": [50, 70],
+  "number_of_final_designs": 15,
+  "max_trajectories": 35,
   "use_soluble_mpnn": true,
-  "notes": "Target 5 TL1A initial Minibinder batch on 80GB GPU"
+  "target_sequence": "LRADGDKPRAHLTVVRQTPTQHFKNQFPALHWEHELGLAFTKNRMNYTNKFLLIPESGDYFIYSQVTFRGMTSECSEIRQAGRPNKPDSITVVITKVTDSYPEPTQLLMGTKSVCEVGSNWFQPIYLGAMFSLQEGDKLMVNVSDISLVDYTKEDKTFFGAFLL:LRADGDKPRAHLTVVRQTPTQHFKNQFPALHWEHELGLAFTKNRMNYTNKFLLIPESGDYFIYSQVTFRGMTSECSEIRQAGRPNKPDSITVVITKVTDSYPEPTQLLMGTKSVCEVGSNWFQPIYLGAMFSLQEGDKLMVNVSDISLVDYTKEDKTFFGAFLL:LRADGDKPRAHLTVVRQTPTQHFKNQFPALHWEHELGLAFTKNRMNYTNKFLLIPESGDYFIYSQVTFRGMTSECSEIRQAGRPNKPDSITVVITKVTDSYPEPTQLLMGTKSVCEVGSNWFQPIYLGAMFSLQEGDKLMVNVSDISLVDYTKEDKTFFGAFLL",
+  "af3_target_sequence": "LRADGDKPRAHLTVVRQTPTQHFKNQFPALHWEHELGLAFTKNRMNYTNKFLLIPESGDYFIYSQVTFRGMTSECSEIRQAGRPNKPDSITVVITKVTDSYPEPTQLLMGTKSVCEVGSNWFQPIYLGAMFSLQEGDKLMVNVSDISLVDYTKEDKTFFGAFLL",
+  "af3_target_copies": 3,
+  "notes": "Target 5 TL1A v2 fast cropped A:B DcR3/DR3 groove + 8xLys negative design + WT trimer clash/ipSAE/AF3 export"
 }
