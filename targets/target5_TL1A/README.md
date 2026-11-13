@@ -33,13 +33,17 @@
 | `targets/t2_2RE9_grooveAB_cropped.pdb` | `A24–180` + `B224–380` | **314** | `d9120f7a63ba10dfd52f916db2ac5a2e4c16ceb49edf579e4a7b33ae9de9a35b` | ✅ **当前主力**：双链受体凹槽 + 8×Lys 背侧封锁，零残缺侧链 |
 | `targets/t1_2RE9_chainA.pdb` | `A17–180` | 164 | `69e31cbc88fe26fa407a20b3959eff14b74716b08f9988b9bfb5ade748ced9eb` | ⚠️ **仅供历史溯源**：裸单体暴露三聚体核心，禁止用于新批次生成 |
 
-## 4. 精确中和表位热点（基于 `3K51` DcR3–TL1A 晶体复合物叠合）
+## 4. 精确中和表位热点与双批次互补策略（基于 `3K51` DcR3–TL1A 晶体复合物叠合）
 
-- **主力中和凹槽热点斑块**：`A52,A87,A137,A138,A167,B317`
-  - 左槽壁（`Chain A`）：AA' loop `A52 (LEU)`、侧面 `A87 (MET)`、`A137 (TRP)`、`A138 (PHE)`、GH loop `A167 (TYR)`
-  - 右槽壁（`Chain B`）：DE loop 核心锚点 `B317 (TYR)`（即文献 `Tyr121` / `2RE9 B117`，突变后直接废除 DR3/DcR3 结合）
-- **推荐生成长度**：`50,70`（总 token $\le 384$，符合官方 Minibinder 40–100 aa 要求且表达率更高）。
-- **后处理双保险**：
-  1. 自动叠合 `evidence/2RE9.pdb` 天然三聚体检查与 `Chain C` 零空间碰撞，并在野生型 `1:3` 同源三聚体上跑 `ESMFold + Dunbrack merged ipSAE`。
-  2. 针对 BindCraft 内部单序列单体 PTM 对双链浅凹槽的系统性盲筛（SOP §D-1），使用 `scripts/harvest_groove_backbones.py`（或 Colab Notebook **第 5 格**）对 `Trajectory/Relaxed/` 中 `i_pTM >= 0.80` 且 `Chain C` 零碰撞的凹槽骨架执行双模式 **SolubleMPNN（`fix_intf` + `full`）+ ESMFold 单体 `scRMSD` 自洽门控 + 可表达性/新颖性硬闸**。
-  3. 自动按跨骨架轮询优先级导出 **AlphaFold 3 Server (`1×Minibinder + 3×野生型 TL1A`)** 批量验证 JSON 文件供最终正交复核。
+- **主力批次（`jobs/templates/job_target5_TL1A_minibinder.json`, `002`）**：
+  - **热点斑块**：`A52,A87,A137,A138,A167,B317`（左槽壁 `Chain A` AA'/GH 环 + 右槽壁 `Chain B` DE loop `B317/Tyr121`），长度 `50–70 aa`，35 条轨迹。
+- **互补增强批次（`jobs/templates/job_target5_TL1A_grooveAB_003.json`, `003` v2.1）**：
+  - **对称跨槽 2:2 热点斑块**：`A52,A167,B317,B325`（跨槽 `Cα` 距离收敛于 `12.7–19.9 Å`，剔除偏外侧的 `A87`，将左槽壁 `A52 (LEU)` + `A167 (TYR)` 与右槽壁核心功能热点 `B317 (TYR, Tyr121)` + 槽底刚性锚点 `B325 (MET, B=29 Å²)` 对称配对，显著提升右槽壁 `B317` 命中率）。
+  - **拓扑多样性增强（SOP §D-2）**：长度放宽至 `55–78 aa`（总 token $\le 392$），并开启 `advanced_overrides: {"random_helicity": true, "omit_AAs": "CM"}`，突破单一全 $\alpha$-螺旋束局限，补充混合 $\alpha/\beta$ 跨槽拓扑。
+- **v2.1 黄金凹槽骨架采收与正交门控（`scripts/harvest_groove_backbones.py` / Colab 第 5 格）**：
+  1. **三维空间与竞争阻断审计**：自动叠合 `evidence/2RE9.pdb` 验证与缺失 `Chain C` 零重原子碰撞（`< 2.5 Å`），同时将 `evidence/3K51.pdb`（`TL1A–DcR3` 复合物）叠合至凹槽，定量计算候选分子与天然受体的重原子空间占位重叠数（`receptor_clashes`）及 N/C 端溶剂暴露距离（`d_nterm`, `d_cterm`，规避 BLI His-tag 位阻）。
+  2. **三模式 SolubleMPNN 逆折叠（`--omit_AAs CXM`）**：
+     - `core_fix`：仅固定最深处 `4–10` 个 `<= 4.0 Å` 高置信度疏水锚点（`F/Y/W(<=2)/L/I/V`），释放边缘极性残基以消除掩埋未满足氢键洞（`UnsatHbonds`）；
+     - `full`：全界面 + 表面重设计，搜索全新极性氢键网络；
+     - `fix_intf`（受控开启）：仅当原轨迹 `UnsatHbonds <= 4`、`Surface_Hydrophobicity <= 0.42` 且无 `WW`/`W>3` 时启用。
+  3. **SOP 序列物理门控与三维姿态去冗余**：强制拦截聚丙氨酸假象（`Ala <= 16%`、禁 `AAAA`）、色氨酸/甲硫氨酸风险（禁 `WW`、`W <= 3`、`M <= 3`）、表面带电亲水度（`E+K >= 26%`、`|net_charge_pH74| <= 10.5`）及 ESMFold 单体自洽门控（`scRMSD <= 2.2 Å`、`pLDDT >= 78.0`，混合 $\alpha/\beta$ 放宽至 `74.0`）；在 `scRMSD <= 1.05 Å` 平台期内按界面物理质量与 `B317` 命中综合排序，并通过三维接触斑块聚类（`Jaccard >= 0.55` 且质心距 `<= 6.0 Å`）按簇轮询导出幂等更新的 **AlphaFold 3 Server (`1×Minibinder + 3×野生型 TL1A`)** 批量验证 JSON。

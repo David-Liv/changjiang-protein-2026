@@ -732,6 +732,9 @@ def write_bindcraft_settings(
     adv_data["mpnn_weights"] = "soluble" if bool(job.get("use_soluble_mpnn", True)) else "original"
     if pathlib.Path("/content/BindCraft/params").exists():
         adv_data["af_params_dir"] = "/content/BindCraft/params/"
+    adv_overrides = job.get("advanced_overrides")
+    if isinstance(adv_overrides, dict):
+        adv_data.update(adv_overrides)
 
     advanced_path = run_dir / "advanced_settings.json"
     advanced_path.write_text(json.dumps(adv_data, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -1167,7 +1170,9 @@ def harvest_bindcraft_candidates(
                 existing_ids.add(design_id)
                 raw_rows.append((design_id, seq, row))
 
-    if not raw_rows:
+    is_multichain_groove = "," in str(job.get("chains", ""))
+    min_desired = int(job.get("number_of_final_designs", 10))
+    if not raw_rows or (is_multichain_groove and len(raw_rows) < min_desired):
         traj_csv = run_dir / "trajectory_stats.csv"
         relaxed_dir = run_dir / "Trajectory" / "Relaxed"
         if not dry_run and traj_csv.exists() and relaxed_dir.exists() and any(relaxed_dir.glob("*.pdb")):
@@ -1175,15 +1180,16 @@ def harvest_bindcraft_candidates(
                 import harvest_groove_backbones as hgb  # type: ignore
 
                 print(
-                    "[Fallback Harvest] BindCraft single-sequence monomer-PTM filter yielded 0 MPNN rows; "
-                    "triggering SolubleMPNN + ESMFold scRMSD + 3D groove harvest on Trajectory/Relaxed/ ...",
+                    f"[Groove Harvest v2] Multi-chain groove run yielded {len(raw_rows)}/{min_desired} default MPNN rows; "
+                    "triggering 3-mode SolubleMPNN (core_fix + full + guarded fix_intf) + ESMFold scRMSD + 3D DcR3/pose harvest...",
                     flush=True,
                 )
                 hres = hgb.harvest_run(run_dir=run_dir, job=job, registry_csv=registry_csv)
                 return len(hres.get("selected_candidates", []))
             except Exception as exc:
                 print(f"[Fallback Harvest Warning] {type(exc).__name__}: {exc}", flush=True)
-        return 0
+        if not raw_rows:
+            return 0
 
     ipsae_map = evaluate_candidates_with_ipsae(
         [(cid, seq) for cid, seq, _ in raw_rows],
@@ -1317,7 +1323,11 @@ def main(argv: list[str] | None = None) -> int:
                 if not all_queue and not auto_recovered_once:
                     auto_recovered_once = True
                     # 1) Self-healing check for generation jobs (Target 5 / Target 1) falsely marked completed with 0 outputs
-                    for gen_name in ("job_target5_TL1A_minibinder.json", "job_target1_EGFR_vhh.json"):
+                    for gen_name in (
+                        "job_target5_TL1A_minibinder.json",
+                        "job_target5_TL1A_grooveAB_003.json",
+                        "job_target1_EGFR_vhh.json",
+                    ):
                         for src_folder in (dirs["completed"], dirs["failed"]):
                             cand_job_p = src_folder / gen_name
                             if cand_job_p.exists():

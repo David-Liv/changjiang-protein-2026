@@ -5,6 +5,7 @@
   "submitted_by": "David",
   "target_pdb_relpath": "targets/target5_TL1A/targets/t2_2RE9_grooveAB_cropped.pdb",
   "native_trimer_pdb_relpath": "targets/target5_TL1A/evidence/2RE9.pdb",
+  "receptor_complex_pdb_relpath": "targets/target5_TL1A/evidence/3K51.pdb",
   "expected_sha256": "d9120f7a63ba10dfd52f916db2ac5a2e4c16ceb49edf579e4a7b33ae9de9a35b",
   "chains": "A,B",
   "hotspots": "A52,A87,A137,A138,A167,B317",

@@ -1,0 +1,24 @@
+{
+  "job_id": "job_t5_tl1a_grooveAB_003",
+  "target_id": "target5_TL1A",
+  "molecule_type": "minibinder",
+  "submitted_by": "David",
+  "target_pdb_relpath": "targets/target5_TL1A/targets/t2_2RE9_grooveAB_cropped.pdb",
+  "native_trimer_pdb_relpath": "targets/target5_TL1A/evidence/2RE9.pdb",
+  "receptor_complex_pdb_relpath": "targets/target5_TL1A/evidence/3K51.pdb",
+  "expected_sha256": "d9120f7a63ba10dfd52f916db2ac5a2e4c16ceb49edf579e4a7b33ae9de9a35b",
+  "chains": "A,B",
+  "hotspots": "A52,A167,B317,B325",
+  "lengths": [55, 78],
+  "number_of_final_designs": 10,
+  "max_trajectories": 22,
+  "use_soluble_mpnn": true,
+  "advanced_overrides": {
+    "random_helicity": true,
+    "omit_AAs": "CM"
+  },
+  "target_sequence": "LRADGDKPRAHLTVVRQTPTQHFKNQFPALHWEHELGLAFTKNRMNYTNKFLLIPESGDYFIYSQVTFRGMTSECSEIRQAGRPNKPDSITVVITKVTDSYPEPTQLLMGTKSVCEVGSNWFQPIYLGAMFSLQEGDKLMVNVSDISLVDYTKEDKTFFGAFLL:LRADGDKPRAHLTVVRQTPTQHFKNQFPALHWEHELGLAFTKNRMNYTNKFLLIPESGDYFIYSQVTFRGMTSECSEIRQAGRPNKPDSITVVITKVTDSYPEPTQLLMGTKSVCEVGSNWFQPIYLGAMFSLQEGDKLMVNVSDISLVDYTKEDKTFFGAFLL:LRADGDKPRAHLTVVRQTPTQHFKNQFPALHWEHELGLAFTKNRMNYTNKFLLIPESGDYFIYSQVTFRGMTSECSEIRQAGRPNKPDSITVVITKVTDSYPEPTQLLMGTKSVCEVGSNWFQPIYLGAMFSLQEGDKLMVNVSDISLVDYTKEDKTFFGAFLL",
+  "af3_target_sequence": "LRADGDKPRAHLTVVRQTPTQHFKNQFPALHWEHELGLAFTKNRMNYTNKFLLIPESGDYFIYSQVTFRGMTSECSEIRQAGRPNKPDSITVVITKVTDSYPEPTQLLMGTKSVCEVGSNWFQPIYLGAMFSLQEGDKLMVNVSDISLVDYTKEDKTFFGAFLL",
+  "af3_target_copies": 3,
+  "notes": "Target 5 TL1A v2.1 complementary batch: symmetric 2:2 B317(Tyr121)+B325(Met129) cross-groove anchors + random_helicity (alpha/beta diversity, SOP D-2) + CM omit"
+}
