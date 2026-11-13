@@ -24,8 +24,10 @@ import json
 import os
 import pathlib
 import re
+import shutil
 import subprocess
 import sys
+import time
 from typing import Any
 
 import numpy as np
@@ -634,8 +636,11 @@ def cluster_and_rank_backbones(passing_bbs: list[dict[str, Any]]) -> list[dict[s
     return ranked
 
 
-def ensure_protein_mpnn_repo(preferred_dir: pathlib.Path | None = None) -> pathlib.Path:
-    """Locate or shallow-clone official `dauparas/ProteinMPNN` containing `soluble_model_weights`."""
+def ensure_protein_mpnn_repo(
+    preferred_dir: pathlib.Path | None = None,
+    drive_cache_dir: pathlib.Path | None = None,
+) -> pathlib.Path:
+    """Locate, restore from Drive cache, or shallow-clone official `dauparas/ProteinMPNN`."""
     candidates = []
     if preferred_dir is not None:
         candidates.append(preferred_dir)
@@ -650,12 +655,29 @@ def ensure_protein_mpnn_repo(preferred_dir: pathlib.Path | None = None) -> pathl
             return c
 
     target_dir = preferred_dir or pathlib.Path("/content/ProteinMPNN")
+    drive_mpnn = (drive_cache_dir / "ProteinMPNN") if drive_cache_dir is not None else None
+    if drive_mpnn is not None and (drive_mpnn / "soluble_model_weights" / "v_48_020.pt").exists():
+        t0 = time.time()
+        target_dir.parent.mkdir(parents=True, exist_ok=True)
+        if target_dir.exists():
+            shutil.rmtree(target_dir)
+        shutil.copytree(drive_mpnn, target_dir)
+        print(f"[Cache] Restored ProteinMPNN + SolubleMPNN weights from Drive cache in {time.time() - t0:.1f}s.", flush=True)
+        return target_dir
+
     target_dir.parent.mkdir(parents=True, exist_ok=True)
     print(f"[SolubleMPNN] Cloning official dauparas/ProteinMPNN into {target_dir} ...", flush=True)
     subprocess.run(
         ["git", "clone", "--depth", "1", "https://github.com/dauparas/ProteinMPNN.git", str(target_dir)],
         check=True,
     )
+    if drive_mpnn is not None and str(drive_mpnn).startswith("/content/drive"):
+        try:
+            drive_mpnn.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(target_dir, drive_mpnn, ignore=shutil.ignore_patterns(".git"), dirs_exist_ok=True)
+            print(f"[Cache] Saved ProteinMPNN weights to shared Drive ({drive_mpnn}).", flush=True)
+        except Exception:
+            pass
     return target_dir
 
 
@@ -811,14 +833,122 @@ def run_soluble_mpnn_mode(
     )
 
 
+def _find_local_esmfold_hf_dir() -> pathlib.Path | None:
+    """Return existing HuggingFace hub directory containing `models--facebook--esmfold_v1`, if present."""
+    roots = [
+        pathlib.Path(os.environ.get("HF_HOME", "")),
+        pathlib.Path("/content/hf_cache"),
+        pathlib.Path.home() / ".cache" / "huggingface",
+    ]
+    for r in roots:
+        if not str(r):
+            continue
+        for hub_dir in (r / "hub", r):
+            cand = hub_dir / "models--facebook--esmfold_v1"
+            if cand.exists() and any(cand.rglob("*.bin")) or (cand.exists() and any(cand.rglob("*.safetensors"))):
+                return hub_dir
+    return None
+
+
+def _restore_esmfold_hf_cache_from_drive(drive_cache_dir: pathlib.Path | None) -> None:
+    """Restore `esmfold_hf_cache.tar.zst` from shared Google Drive onto Colab NVMe (`/content/hf_cache`) in ~15s."""
+    if drive_cache_dir is None or _find_local_esmfold_hf_dir() is not None:
+        return
+    cache_tar = drive_cache_dir / "esmfold_hf_cache.tar.zst"
+    if not cache_tar.exists():
+        # Configure HF_HOME on Colab NVMe so subsequent download can be archived cleanly
+        if pathlib.Path("/content").exists():
+            nvme_hf = pathlib.Path("/content/hf_cache")
+            nvme_hf.mkdir(parents=True, exist_ok=True)
+            os.environ["HF_HOME"] = str(nvme_hf)
+        return
+
+    nvme_hf = pathlib.Path("/content/hf_cache") if pathlib.Path("/content").exists() else (pathlib.Path.home() / ".cache" / "huggingface")
+    nvme_hf.mkdir(parents=True, exist_ok=True)
+    t0 = time.time()
+    print(f"[Cache] Found {cache_tar.name} on shared Google Drive! Restoring ESMFold weights to NVMe ({nvme_hf})...", flush=True)
+    subprocess.run(["apt-get", "install", "-y", "-qq", "zstd"], check=False)
+    proc = subprocess.run(["tar", "-I", "zstd -d -T0", "-xf", str(cache_tar), "-C", str(nvme_hf)], check=False)
+    if proc.returncode == 0:
+        os.environ["HF_HOME"] = str(nvme_hf)
+        print(f"[Cache] ESMFold weights restored from Drive in {time.time() - t0:.1f}s (skipped ~4 min HF download)!", flush=True)
+
+
+def _save_esmfold_hf_cache_to_drive(drive_cache_dir: pathlib.Path | None) -> None:
+    """Archive `models--facebook--esmfold_v1` to `<shared_drive>/cache/esmfold_hf_cache.tar.zst` once."""
+    if drive_cache_dir is None or not str(drive_cache_dir).startswith("/content/drive"):
+        return
+    cache_tar = drive_cache_dir / "esmfold_hf_cache.tar.zst"
+    if cache_tar.exists():
+        return
+    hub_dir = _find_local_esmfold_hf_dir()
+    if hub_dir is None:
+        return
+    model_dir = hub_dir / "models--facebook--esmfold_v1"
+    if not model_dir.exists():
+        return
+    try:
+        t0 = time.time()
+        drive_cache_dir.mkdir(parents=True, exist_ok=True)
+        tmp_tar = pathlib.Path("/content/esmfold_hf_cache.tar.zst.tmp")
+        print(f"[Cache] Archiving ESMFold HF weights -> {cache_tar} for 15s instant startup on future runs...", flush=True)
+        subprocess.run(["apt-get", "install", "-y", "-qq", "zstd"], check=False)
+        # Archive under `hub/models--facebook--esmfold_v1` layout expected by HF_HOME
+        parent_root = hub_dir.parent if hub_dir.name == "hub" else hub_dir
+        rel_target = str(model_dir.relative_to(parent_root))
+        proc = subprocess.run(
+            ["tar", "-I", "zstd -1 -T0", "-cf", str(tmp_tar), "-C", str(parent_root), rel_target],
+            check=False,
+        )
+        if proc.returncode == 0 and tmp_tar.exists():
+            shutil.move(str(tmp_tar), str(cache_tar))
+            print(f"[Cache] Saved ESMFold weights cache ({cache_tar.name}) in {time.time() - t0:.1f}s!", flush=True)
+    except Exception as exc:
+        print(f"[Cache Warning] Could not archive ESMFold cache to Drive: {exc}", flush=True)
+
+
 def evaluate_monomers_with_esmfold(
     candidates: list[dict[str, Any]],
     backbone_ca_map: dict[str, np.ndarray],
-    out_pdb_dir: pathlib.Path,
+    cache_json_path: pathlib.Path | None = None,
+    drive_cache_dir: pathlib.Path | None = None,
+    save_hf_cache: bool = True,
 ) -> bool:
-    """Fold unbound monomer candidates with ESMFold on CUDA and compute `monomer_esm_plddt` + `monomer_sc_rmsd`."""
+    """Fold unbound monomer candidates with ESMFold on CUDA (with sequence result cache + HF Drive cache)."""
     if not candidates:
         return False
+
+    # 1) Load deterministic per-(backbone, sequence_sha256) ESMFold metric cache
+    seq_cache: dict[str, dict[str, float]] = {}
+    if cache_json_path is not None and cache_json_path.exists():
+        try:
+            seq_cache = json.loads(cache_json_path.read_text(encoding="utf-8"))
+        except Exception:
+            seq_cache = {}
+
+    to_fold: list[dict[str, Any]] = []
+    cache_hits = 0
+    for c in candidates:
+        ckey = f"{c['backbone_id']}:{c['sequence_sha256']}"
+        hit = seq_cache.get(ckey)
+        if hit and "monomer_sc_rmsd" in hit and "monomer_esm_plddt" in hit:
+            c["monomer_esm_plddt"] = float(hit["monomer_esm_plddt"])
+            c["monomer_sc_rmsd"] = float(hit["monomer_sc_rmsd"])
+            cache_hits += 1
+        elif c.get("monomer_sc_rmsd", "") != "" and c.get("monomer_esm_plddt", "") != "":
+            cache_hits += 1
+        else:
+            to_fold.append(c)
+
+    if cache_hits > 0:
+        print(
+            f"[ESMFold Cache] Instant hit on {cache_hits}/{len(candidates)} deterministic monomer folds; "
+            f"{len(to_fold)} new sequences need GPU folding.",
+            flush=True,
+        )
+    if not to_fold:
+        return True
+
     try:
         import torch
     except ImportError:
@@ -838,35 +968,69 @@ def evaluate_monomers_with_esmfold(
             check=True,
         )
 
-    out_pdb_dir.mkdir(parents=True, exist_ok=True)
+    _restore_esmfold_hf_cache_from_drive(drive_cache_dir)
     chunk = worker.detect_gpu_chunk()
-    print(f"[ESMFold] Loading EsmForProteinFolding on CUDA (chunk={chunk}) for {len(candidates)} monomers...", flush=True)
+    vram_gb = torch.cuda.get_device_properties(0).total_memory / 1e9
+    bmax = 32 if vram_gb >= 22.0 else 16
+
+    print(
+        f"[ESMFold] Loading EsmForProteinFolding on CUDA (VRAM={vram_gb:.1f}GB, chunk={chunk}, batch={bmax}) "
+        f"for {len(to_fold)} monomers...",
+        flush=True,
+    )
     tok, model = tp.load_hf("cuda", chunk, fp16=True)
+    if save_hf_cache:
+        _save_esmfold_hf_cache_to_drive(drive_cache_dir)
 
     by_len: dict[int, list[dict[str, Any]]] = {}
-    for c in candidates:
+    for c in to_fold:
         by_len.setdefault(len(c["sequence"]), []).append(c)
 
-    bmax = 8
+    batches: list[tuple[int, list[dict[str, Any]]]] = []
     for seq_len, group in sorted(by_len.items()):
         for start in range(0, len(group), bmax):
-            batch = group[start : start + bmax]
-            seqs = [x["sequence"] for x in batch]
-            pos_list = [np.arange(seq_len, dtype=np.int64) for _ in batch]
-            outs = tp.infer_hf_batch(model, tok, seqs, pos_list, "cuda", recycles=3)
-            for item, (_, pl_arr, pdb_str) in zip(batch, outs):
-                cid = item["design_id"]
-                pdb_p = out_pdb_dir / f"{cid}.pdb"
-                pdb_p.write_text(pdb_str, encoding="utf-8")
-                pred_cas = []
-                for ln in pdb_str.splitlines():
-                    if ln.startswith("ATOM  ") and ln[12:16].strip() == "CA":
-                        pred_cas.append([float(ln[30:38]), float(ln[38:46]), float(ln[46:54])])
-                pred_ca_np = np.array(pred_cas, dtype=float)
-                ref_ca_np = backbone_ca_map[item["backbone_id"]]
-                sc_rmsd = kabsch_ca_rmsd(pred_ca_np, ref_ca_np)
-                item["monomer_esm_plddt"] = round(float(np.mean(pl_arr)), 2)
-                item["monomer_sc_rmsd"] = round(sc_rmsd, 3)
+            batches.append((seq_len, group[start : start + bmax]))
+
+    t_fold0 = time.time()
+    done_seqs = 0
+    for b_idx, (seq_len, batch) in enumerate(batches, start=1):
+        seqs = [x["sequence"] for x in batch]
+        pos_list = [np.arange(seq_len, dtype=np.int64) for _ in batch]
+        outs = tp.infer_hf_batch(model, tok, seqs, pos_list, "cuda", recycles=3)
+        for item, (_, pl_arr, pdb_str) in zip(batch, outs):
+            pred_cas = [
+                [float(ln[30:38]), float(ln[38:46]), float(ln[46:54])]
+                for ln in pdb_str.splitlines()
+                if ln.startswith("ATOM  ") and ln[12:16].strip() == "CA"
+            ]
+            pred_ca_np = np.array(pred_cas, dtype=float)
+            ref_ca_np = backbone_ca_map[item["backbone_id"]]
+            sc_rmsd = round(kabsch_ca_rmsd(pred_ca_np, ref_ca_np), 3)
+            pl_val = round(float(np.mean(pl_arr)), 2)
+            item["monomer_esm_plddt"] = pl_val
+            item["monomer_sc_rmsd"] = sc_rmsd
+            item["_monomer_pdb_str"] = pdb_str
+            seq_cache[f"{item['backbone_id']}:{item['sequence_sha256']}"] = {
+                "monomer_esm_plddt": pl_val,
+                "monomer_sc_rmsd": sc_rmsd,
+            }
+        done_seqs += len(batch)
+        elapsed = time.time() - t_fold0
+        rate = done_seqs / max(0.01, elapsed)
+        eta = (len(to_fold) - done_seqs) / max(0.01, rate)
+        if b_idx == 1 or b_idx % 3 == 0 or b_idx == len(batches):
+            print(
+                f"  [ESMFold {b_idx}/{len(batches)}] {done_seqs}/{len(to_fold)} monomers folded "
+                f"({elapsed:.1f}s elapsed, ETA {eta:.0f}s)",
+                flush=True,
+            )
+
+    if cache_json_path is not None:
+        try:
+            cache_json_path.parent.mkdir(parents=True, exist_ok=True)
+            cache_json_path.write_text(json.dumps(seq_cache, indent=2), encoding="utf-8")
+        except Exception:
+            pass
 
     if torch.cuda.is_available():
         del model
@@ -899,6 +1063,7 @@ def harvest_run(
     max_sc_rmsd: float = 2.2,
     min_monomer_plddt: float = 78.0,
     skip_esmfold: bool = False,
+    save_hf_cache: bool = True,
     af3_batch_size: int = 20,
     mpnn_runner_override=None,
 ) -> dict[str, Any]:
@@ -974,11 +1139,41 @@ def harvest_run(
 
     harvest_dir = run_dir / "harvest_soluble_mpnn"
     harvest_dir.mkdir(parents=True, exist_ok=True)
+    drive_cache_dir = run_dir.parent.parent / "cache"
+
+    # Seed deterministic monomer ESMFold cache from any prior harvest_candidates_all.csv in this run_dir
+    esm_cache_json = harvest_dir / "esmfold_monomer_cache.json"
+    prior_all_csv = harvest_dir / "harvest_candidates_all.csv"
+    if prior_all_csv.exists():
+        seeded_cache: dict[str, dict[str, float]] = {}
+        if esm_cache_json.exists():
+            try:
+                seeded_cache = json.loads(esm_cache_json.read_text(encoding="utf-8"))
+            except Exception:
+                seeded_cache = {}
+        changed_seed = False
+        with prior_all_csv.open("r", newline="", encoding="utf-8") as pf:
+            for prow in csv.DictReader(pf):
+                p_scr = prow.get("monomer_sc_rmsd", "")
+                p_pl = prow.get("monomer_esm_plddt", "")
+                p_seq = (prow.get("sequence") or "").strip().upper()
+                p_bb = prow.get("backbone_id", "")
+                if p_scr != "" and p_pl != "" and p_seq and p_bb:
+                    psha = hashlib.sha256(p_seq.encode("utf-8")).hexdigest()
+                    ckey = f"{p_bb}:{psha}"
+                    if ckey not in seeded_cache:
+                        seeded_cache[ckey] = {
+                            "monomer_esm_plddt": float(p_pl),
+                            "monomer_sc_rmsd": float(p_scr),
+                        }
+                        changed_seed = True
+        if changed_seed:
+            esm_cache_json.write_text(json.dumps(seeded_cache, indent=2), encoding="utf-8")
 
     if mpnn_runner_override is not None:
         raw_mpnn = mpnn_runner_override(passing_bbs, harvest_dir)
     else:
-        mpnn_repo = ensure_protein_mpnn_repo()
+        mpnn_repo = ensure_protein_mpnn_repo(drive_cache_dir=drive_cache_dir)
         raw_mpnn = []
         if num_seqs_core_fix > 0:
             print(
@@ -1172,7 +1367,9 @@ def harvest_run(
         esm_ran = evaluate_monomers_with_esmfold(
             esm_queue,
             backbone_ca_map=backbone_ca_map,
-            out_pdb_dir=harvest_dir / "monomer_esmfold",
+            cache_json_path=esm_cache_json,
+            drive_cache_dir=drive_cache_dir,
+            save_hf_cache=save_hf_cache,
         )
     for cand in esm_queue:
         sc_r = cand["monomer_sc_rmsd"]
@@ -1242,6 +1439,17 @@ def harvest_run(
                 cand = picks[slot_idx]
                 cand["af3_priority_rank"] = len(selected_candidates) + 1
                 selected_candidates.append(cand)
+
+    # Persist monomer PDBs strictly for selected winners (avoids 250+ slow FUSE small-file writes)
+    monomer_pdb_dir = harvest_dir / "monomer_esmfold"
+    if any("_monomer_pdb_str" in c for c in selected_candidates):
+        monomer_pdb_dir.mkdir(parents=True, exist_ok=True)
+        for c in selected_candidates:
+            pdb_s = c.get("_monomer_pdb_str")
+            if pdb_s:
+                (monomer_pdb_dir / f"{c['design_id']}.pdb").write_text(pdb_s, encoding="utf-8")
+    for c in evaluated_candidates:
+        c.pop("_monomer_pdb_str", None)
 
     # Write complete audit CSV & passing FASTA to harvest_dir on Google Drive
     all_csv = harvest_dir / "harvest_candidates_all.csv"

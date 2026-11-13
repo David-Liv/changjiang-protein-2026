@@ -13,6 +13,10 @@ registry/
 *mpnn_design_stats.csv
 *.zip
 *.tar.gz
+folds_*/
+af3_inputs/
+af3_server_*.json
+harvest_candidates*.fasta
 
 # Python / OS / Scratch
 __pycache__/
