@@ -1,0 +1,28 @@
+{
+  "job_id": "job_t7_il7ra_holo7opb_001",
+  "target_id": "target7_IL7Ra",
+  "molecule_type": "minibinder",
+  "submitted_by": "David",
+  "target_pdb_relpath": "targets/target7_IL7Ra/targets/t2_7OPB_holo_coreECD.pdb",
+  "expected_sha256": "34af7e4fb3a3657e33ba3b0dfb5ff406537055796c8dfd42262ae12d2fb5c924",
+  "glycan_reference_pdb_relpath": "targets/target7_IL7Ra/evidence/3DI3.pdb",
+  "glycan_reference_chain": "B",
+  "ligand_competition_pdb_relpath": "targets/target7_IL7Ra/evidence/3DI3.pdb",
+  "ligand_competition_chain": "A",
+  "known_binders_fasta_relpath": "targets/target7_IL7Ra/targets/known_binders_IL7Ra_SEQRES.fasta",
+  "chains": "B",
+  "hotspots": "B80,B82,B138,B139,B192,B193",
+  "lengths": [52, 78],
+  "lengths_hard_limit": [40, 100],
+  "number_of_final_designs": 12,
+  "max_trajectories": 28,
+  "use_soluble_mpnn": true,
+  "advanced_overrides": {
+    "random_helicity": true,
+    "omit_AAs": "CM"
+  },
+  "target_sequence": "ESGYAQNGDLEDAELDDYSFSCYSQLEVNGSQHSLTCAFEDPDVNITNLEFEICGALVEVKCLNFRKLQEIYFIETKKFLLIGKSNICVKVGEKSLTCKKIDLTTIVKPEAPFDLSVVYREGANDFVVTFNTSHLQKKYVKVLMHDVAYRQEKDENKWTHVNLSSTKLTLLQRKLQPAAMYEIKVRSIPDHYFKGFWSEWSPSYYFRTPEINNSSGEMD",
+  "af3_target_sequence": "ESGYAQNGDLEDAELDDYSFSCYSQLEVNGSQHSLTCAFEDPDVNITNLEFEICGALVEVKCLNFRKLQEIYFIETKKFLLIGKSNICVKVGEKSLTCKKIDLTTIVKPEAPFDLSVVYREGANDFVVTFNTSHLQKKYVKVLMHDVAYRQEKDENKWTHVNLSSTKLTLLQRKLQPAAMYEIKVRSIPDHYFKGFWSEWSPSYYFRTPEINNSSGEMD",
+  "af3_target_copies": 1,
+  "notes": "Target 7 IL-7Ra cross-crystal diversity batch: 7OPB minibinder-holo ECD + HS3 lower-elbow hydrophobic shift + random_helicity mixed alpha/beta + strict <=70% novelty gate vs 7OPB_D"
+}

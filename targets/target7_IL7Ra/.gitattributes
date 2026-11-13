@@ -1,0 +1,5 @@
+*.pdb text eol=lf
+*.fasta text eol=lf
+*.txt text eol=lf
+*.py text eol=lf
+*.md text eol=lf

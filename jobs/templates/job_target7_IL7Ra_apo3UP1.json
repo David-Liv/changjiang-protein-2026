@@ -1,0 +1,27 @@
+{
+  "job_id": "job_t7_il7ra_apo3up1_001",
+  "target_id": "target7_IL7Ra",
+  "molecule_type": "minibinder",
+  "submitted_by": "David",
+  "target_pdb_relpath": "targets/target7_IL7Ra/targets/t3_3UP1_apo_coreECD.pdb",
+  "expected_sha256": "a45b173849d11b03f61147eccb7272ae6450f95a6150c70cc5d61c2dad366c54",
+  "glycan_reference_pdb_relpath": "targets/target7_IL7Ra/evidence/3DI3.pdb",
+  "glycan_reference_chain": "B",
+  "ligand_competition_pdb_relpath": "targets/target7_IL7Ra/evidence/3DI3.pdb",
+  "ligand_competition_chain": "A",
+  "known_binders_fasta_relpath": "targets/target7_IL7Ra/targets/known_binders_IL7Ra_SEQRES.fasta",
+  "chains": "B",
+  "hotspots": "B59,B77,B138,B139,B192",
+  "lengths": [55, 85],
+  "lengths_hard_limit": [40, 100],
+  "number_of_final_designs": 12,
+  "max_trajectories": 25,
+  "use_soluble_mpnn": true,
+  "advanced_overrides": {
+    "omit_AAs": "CM"
+  },
+  "target_sequence": "ESGYAQNGDLEDAELDDYSFSCYSQLEVNGSQHSLTCAFEDPDVNITNLEFEICGALVEVKCLNFRKLQEIYFIETKKFLLIGKSNICVKVGEKSLTCKKIDLTTIVKPEAPFDLSVVYREGANDFVVTFNTSHLQKKYVKVLMHDVAYRQEKDENKWTHVNLSSTKLTLLQRKLQPAAMYEIKVRSIPDHYFKGFWSEWSPSYYFRTPEINNSSGEMD",
+  "af3_target_sequence": "ESGYAQNGDLEDAELDDYSFSCYSQLEVNGSQHSLTCAFEDPDVNITNLEFEICGALVEVKCLNFRKLQEIYFIETKKFLLIGKSNICVKVGEKSLTCKKIDLTTIVKPEAPFDLSVVYREGANDFVVTFNTSHLQKKYVKVLMHDVAYRQEKDENKWTHVNLSSTKLTLLQRKLQPAAMYEIKVRSIPDHYFKGFWSEWSPSYYFRTPEINNSSGEMD",
+  "af3_target_copies": 1,
+  "notes": "Target 7 IL-7Ra apo resting-state batch: 3UP1 unliganded ECD (T46I canonicalized) + HS4 upper-saddle patch for guaranteed cell-surface resting receptor recognition"
+}

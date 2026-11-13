@@ -1,0 +1,27 @@
+{
+  "job_id": "job_t7_il7ra_core_001",
+  "target_id": "target7_IL7Ra",
+  "molecule_type": "minibinder",
+  "submitted_by": "David",
+  "target_pdb_relpath": "targets/target7_IL7Ra/targets/t1_3DI3_coreECD.pdb",
+  "expected_sha256": "d59f9f2848fbf4ec66e0887cb9f9830c28dcffd0bd8009d03355bece559f6ca0",
+  "glycan_reference_pdb_relpath": "targets/target7_IL7Ra/evidence/3DI3.pdb",
+  "glycan_reference_chain": "B",
+  "ligand_competition_pdb_relpath": "targets/target7_IL7Ra/evidence/3DI3.pdb",
+  "ligand_competition_chain": "A",
+  "known_binders_fasta_relpath": "targets/target7_IL7Ra/targets/known_binders_IL7Ra_SEQRES.fasta",
+  "chains": "B",
+  "hotspots": "B77,B79,B81,B138,B139,B192",
+  "lengths": [55, 85],
+  "lengths_hard_limit": [40, 100],
+  "number_of_final_designs": 15,
+  "max_trajectories": 35,
+  "use_soluble_mpnn": true,
+  "advanced_overrides": {
+    "omit_AAs": "CM"
+  },
+  "target_sequence": "ESGYAQNGDLEDAELDDYSFSCYSQLEVNGSQHSLTCAFEDPDVNITNLEFEICGALVEVKCLNFRKLQEIYFIETKKFLLIGKSNICVKVGEKSLTCKKIDLTTIVKPEAPFDLSVVYREGANDFVVTFNTSHLQKKYVKVLMHDVAYRQEKDENKWTHVNLSSTKLTLLQRKLQPAAMYEIKVRSIPDHYFKGFWSEWSPSYYFRTPEINNSSGEMD",
+  "af3_target_sequence": "ESGYAQNGDLEDAELDDYSFSCYSQLEVNGSQHSLTCAFEDPDVNITNLEFEICGALVEVKCLNFRKLQEIYFIETKKFLLIGKSNICVKVGEKSLTCKKIDLTTIVKPEAPFDLSVVYREGANDFVVTFNTSHLQKKYVKVLMHDVAYRQEKDENKWTHVNLSSTKLTLLQRKLQPAAMYEIKVRSIPDHYFKGFWSEWSPSYYFRTPEINNSSGEMD",
+  "af3_target_copies": 1,
+  "notes": "Target 7 IL-7Ra primary batch: 3DI3 holo core ECD (B17-B209, T46I canonicalized) + HS1 glycan-clear elbow patch + SolubleMPNN + 3DI3 glycan/IL-7 audit + <=70% novelty gate + 1:1 AF3 export"
+}
