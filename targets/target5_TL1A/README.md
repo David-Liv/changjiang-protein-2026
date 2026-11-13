@@ -41,4 +41,5 @@
 - **推荐生成长度**：`50,70`（总 token $\le 384$，符合官方 Minibinder 40–100 aa 要求且表达率更高）。
 - **后处理双保险**：
   1. 自动叠合 `evidence/2RE9.pdb` 天然三聚体检查与 `Chain C` 零空间碰撞，并在野生型 `1:3` 同源三聚体上跑 `ESMFold + Dunbrack merged ipSAE`。
-  2. 自动导出 **AlphaFold 3 Server (`1×Minibinder + 3×野生型 TL1A`)** 批量验证 JSON 文件供最终正交复核。
+  2. 针对 BindCraft 内部单序列单体 PTM 对双链浅凹槽的系统性盲筛（SOP §D-1），使用 `scripts/harvest_groove_backbones.py`（或 Colab Notebook **第 5 格**）对 `Trajectory/Relaxed/` 中 `i_pTM >= 0.80` 且 `Chain C` 零碰撞的凹槽骨架执行双模式 **SolubleMPNN（`fix_intf` + `full`）+ ESMFold 单体 `scRMSD` 自洽门控 + 可表达性/新颖性硬闸**。
+  3. 自动按跨骨架轮询优先级导出 **AlphaFold 3 Server (`1×Minibinder + 3×野生型 TL1A`)** 批量验证 JSON 文件供最终正交复核。

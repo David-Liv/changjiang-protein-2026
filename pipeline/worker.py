@@ -1168,6 +1168,21 @@ def harvest_bindcraft_candidates(
                 raw_rows.append((design_id, seq, row))
 
     if not raw_rows:
+        traj_csv = run_dir / "trajectory_stats.csv"
+        relaxed_dir = run_dir / "Trajectory" / "Relaxed"
+        if not dry_run and traj_csv.exists() and relaxed_dir.exists() and any(relaxed_dir.glob("*.pdb")):
+            try:
+                import harvest_groove_backbones as hgb  # type: ignore
+
+                print(
+                    "[Fallback Harvest] BindCraft single-sequence monomer-PTM filter yielded 0 MPNN rows; "
+                    "triggering SolubleMPNN + ESMFold scRMSD + 3D groove harvest on Trajectory/Relaxed/ ...",
+                    flush=True,
+                )
+                hres = hgb.harvest_run(run_dir=run_dir, job=job, registry_csv=registry_csv)
+                return len(hres.get("selected_candidates", []))
+            except Exception as exc:
+                print(f"[Fallback Harvest Warning] {type(exc).__name__}: {exc}", flush=True)
         return 0
 
     ipsae_map = evaluate_candidates_with_ipsae(
