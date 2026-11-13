@@ -736,6 +736,13 @@ def write_bindcraft_settings(
     if isinstance(adv_overrides, dict):
         adv_data.update(adv_overrides)
 
+    # BindCraft / ColabDesign splits `omit_AAs` by comma (`rm_aa.split(",")` -> `aa_order[aa]`);
+    # normalize unseparated strings like `"CM"` -> `"C,M"` to prevent `KeyError: 'CM'`.
+    raw_omit = adv_data.get("omit_AAs")
+    if isinstance(raw_omit, str):
+        clean_aas = list(dict.fromkeys(ch for ch in raw_omit.upper() if ch in "ACDEFGHIKLMNPQRSTVWY"))
+        adv_data["omit_AAs"] = ",".join(clean_aas)
+
     advanced_path = run_dir / "advanced_settings.json"
     advanced_path.write_text(json.dumps(adv_data, indent=2, ensure_ascii=False), encoding="utf-8")
     return settings_path, advanced_path
@@ -1335,14 +1342,29 @@ def main(argv: list[str] | None = None) -> int:
                                     jdata = json.loads(cand_job_p.read_text(encoding="utf-8"))
                                     jid = jdata.get("job_id", cand_job_p.stem)
                                     rdir = dirs["runs"] / jid
-                                    has_csv = (rdir / "final_design_stats.csv").exists() or (rdir / "trajectory_stats.csv").exists()
+                                    traj_csv_p = rdir / "trajectory_stats.csv"
+                                    has_traj_rows = False
+                                    if traj_csv_p.exists():
+                                        with traj_csv_p.open("r", encoding="utf-8", errors="replace") as tf:
+                                            has_traj_rows = sum(1 for ln in tf if ln.strip()) > 1
                                     has_pdb = any(rdir.rglob("*.pdb")) if rdir.exists() else False
-                                    if not has_csv and not has_pdb:
+                                    if not has_traj_rows and not has_pdb:
+                                        tmpl_gen = REPO_ROOT / "jobs" / "templates" / gen_name
+                                        if tmpl_gen.exists():
+                                            try:
+                                                tdata = json.loads(tmpl_gen.read_text(encoding="utf-8"))
+                                                if "advanced_overrides" in tdata:
+                                                    jdata["advanced_overrides"] = tdata["advanced_overrides"]
+                                            except Exception:
+                                                pass
                                         recovered_gen = dirs["running"] / gen_name
-                                        shutil.move(str(cand_job_p), str(recovered_gen))
+                                        recovered_gen.write_text(
+                                            json.dumps(jdata, indent=2, ensure_ascii=False), encoding="utf-8"
+                                        )
+                                        cand_job_p.unlink(missing_ok=True)
                                         print(
-                                            f"[AUTO-RECOVER] 檢測到生成任務 {gen_name} 上次未實際運行 BindCraft（產出 0 個結構），\n"
-                                            f"               已自動將其從 {src_folder.name}/ 恢復至 {recovered_gen} 準備執行！",
+                                            f"[AUTO-RECOVER] 檢測到生成任務 {gen_name} 上次產出 0 個結構，\n"
+                                            f"               已自動修復設定並將其從 {src_folder.name}/ 恢復至 {recovered_gen} 準備執行！",
                                             flush=True,
                                         )
                                         all_queue.append(recovered_gen)

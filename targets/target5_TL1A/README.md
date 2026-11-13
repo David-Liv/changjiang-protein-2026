@@ -39,7 +39,7 @@
   - **热点斑块**：`A52,A87,A137,A138,A167,B317`（左槽壁 `Chain A` AA'/GH 环 + 右槽壁 `Chain B` DE loop `B317/Tyr121`），长度 `50–70 aa`，35 条轨迹。
 - **互补增强批次（`jobs/templates/job_target5_TL1A_grooveAB_003.json`, `003` v2.1）**：
   - **对称跨槽 2:2 热点斑块**：`A52,A167,B317,B325`（跨槽 `Cα` 距离收敛于 `12.7–19.9 Å`，剔除偏外侧的 `A87`，将左槽壁 `A52 (LEU)` + `A167 (TYR)` 与右槽壁核心功能热点 `B317 (TYR, Tyr121)` + 槽底刚性锚点 `B325 (MET, B=29 Å²)` 对称配对，显著提升右槽壁 `B317` 命中率）。
-  - **拓扑多样性增强（SOP §D-2）**：长度放宽至 `55–78 aa`（总 token $\le 392$），并开启 `advanced_overrides: {"random_helicity": true, "omit_AAs": "CM"}`，突破单一全 $\alpha$-螺旋束局限，补充混合 $\alpha/\beta$ 跨槽拓扑。
+  - **拓扑多样性增强（SOP §D-2）**：长度放宽至 `55–78 aa`（总 token $\le 392$），并开启 `advanced_overrides: {"random_helicity": true, "omit_AAs": "C,M"}`，突破单一全 $\alpha$-螺旋束局限，补充混合 $\alpha/\beta$ 跨槽拓扑。
 - **v2.1 黄金凹槽骨架采收与正交门控（`scripts/harvest_groove_backbones.py` / Colab 第 5 格）**：
   1. **三维空间与竞争阻断审计**：自动叠合 `evidence/2RE9.pdb` 验证与缺失 `Chain C` 零重原子碰撞（`< 2.5 Å`），同时将 `evidence/3K51.pdb`（`TL1A–DcR3` 复合物）叠合至凹槽，定量计算候选分子与天然受体的重原子空间占位重叠数（`receptor_clashes`）及 N/C 端溶剂暴露距离（`d_nterm`, `d_cterm`，规避 BLI His-tag 位阻）。
   2. **三模式 SolubleMPNN 逆折叠（`--omit_AAs CXM`）**：
