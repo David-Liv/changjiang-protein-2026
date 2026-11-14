@@ -858,6 +858,13 @@ def write_bindcraft_settings(
     if isinstance(adv_overrides, dict):
         adv_data.update(adv_overrides)
 
+    # BindCraft / ColabDesign splits `omit_AAs` by comma (`rm_aa.split(",")` -> `aa_order[aa]`);
+    # normalize unseparated strings like `"CM"` -> `"C,M"` so `KeyError: 'CM'` can never occur.
+    raw_omit = adv_data.get("omit_AAs")
+    if isinstance(raw_omit, str):
+        clean_aas = list(dict.fromkeys(ch for ch in raw_omit.upper() if ch in "ACDEFGHIKLMNPQRSTVWY"))
+        adv_data["omit_AAs"] = ",".join(clean_aas)
+
     advanced_path = run_dir / "advanced_settings.json"
     advanced_path.write_text(json.dumps(adv_data, indent=2, ensure_ascii=False), encoding="utf-8")
     return settings_path, advanced_path
@@ -1726,12 +1733,30 @@ def main(argv: list[str] | None = None) -> int:
                                     jdata = json.loads(cand_p.read_text(encoding="utf-8"))
                                     jid = jdata.get("job_id", cand_p.stem)
                                     rdir = dirs["runs"] / jid
-                                    has_csv = (rdir / "final_design_stats.csv").exists() or (rdir / "trajectory_stats.csv").exists()
+                                    traj_csv_p = rdir / "trajectory_stats.csv"
+                                    has_traj_rows = False
+                                    if traj_csv_p.exists():
+                                        with traj_csv_p.open("r", encoding="utf-8", errors="replace") as tf:
+                                            has_traj_rows = sum(1 for ln in tf if ln.strip()) > 1
                                     has_pdb = any(rdir.rglob("*.pdb")) if rdir.exists() else False
-                                    if not has_csv and not has_pdb:
+                                    if not has_traj_rows and not has_pdb:
+                                        tmpl_t7 = REPO_ROOT / "jobs" / "templates" / t7_name
+                                        if tmpl_t7.exists():
+                                            try:
+                                                tdata = json.loads(tmpl_t7.read_text(encoding="utf-8"))
+                                                if "advanced_overrides" in tdata:
+                                                    jdata["advanced_overrides"] = tdata["advanced_overrides"]
+                                            except Exception:
+                                                pass
                                         rec_p = dirs["running"] / t7_name
-                                        shutil.move(str(cand_p), str(rec_p))
-                                        print(f"[AUTO-RECOVER] 已自動恢復 0 產出的 T7 任務 {t7_name} 至 {rec_p}！", flush=True)
+                                        rec_p.write_text(
+                                            json.dumps(jdata, indent=2, ensure_ascii=False), encoding="utf-8"
+                                        )
+                                        cand_p.unlink(missing_ok=True)
+                                        print(
+                                            f"[AUTO-RECOVER] 檢測到 T7 任務 {t7_name} 上次產出 0 個結構，已自動修復設定並恢復至 {rec_p}！",
+                                            flush=True,
+                                        )
                                         all_queue.append(rec_p)
                                 except Exception:
                                     pass
