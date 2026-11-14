@@ -394,7 +394,8 @@ def audit_and_prepare_backbone(
         result["reject_reasons"].append(f"LOW_IPTM_{iptm:.2f}")
     if plddt < min_plddt:
         result["reject_reasons"].append(f"LOW_PLDDT_{plddt:.2f}")
-    if sc > 0.0 and sc < min_sc:
+    eff_min_sc = min(min_sc, 0.51) if (iptm >= 0.85 and plddt >= 0.85) else min_sc
+    if sc > 0.0 and sc < eff_min_sc:
         result["reject_reasons"].append(f"LOW_SC_{sc:.2f}")
     if not relaxed_pdb.exists():
         result["reject_reasons"].append("MISSING_RELAXED_PDB")
@@ -1135,7 +1136,16 @@ def harvest_run(
         flush=True,
     )
     if not passing_bbs:
-        return {"selected_records": [], "selected_candidates": [], "af3_files": [], "audited_backbones": audited_all}
+        return {
+            "selected_records": [],
+            "selected_candidates": [],
+            "evaluated_candidates": [],
+            "passing_backbones": [],
+            "af3_files": [],
+            "all_csv": "",
+            "pass_fasta": "",
+            "audited_backbones": audited_all,
+        }
 
     harvest_dir = run_dir / "harvest_soluble_mpnn"
     harvest_dir.mkdir(parents=True, exist_ok=True)
@@ -1626,18 +1636,24 @@ def main(argv: list[str] | None = None) -> int:
     if args.run_dir:
         run_dir = pathlib.Path(args.run_dir)
         reg_csv = run_dir.parent.parent / "registry" / "design_registry.csv"
+        dirs = None
     else:
         dirs = worker.ensure_drive_workspace(pathlib.Path(args.drive_root))
         run_dir = dirs["runs"] / args.job_id
         reg_csv = dirs["registry"] / "design_registry.csv"
-        for completed_job_p in sorted(dirs["completed"].glob("*.json")):
-            try:
-                cjob = json.loads(completed_job_p.read_text(encoding="utf-8"))
-                if cjob.get("job_id") == args.job_id:
-                    job = cjob
-                    break
-            except Exception:
-                pass
+        for q_folder in (dirs["completed"], dirs["running"]):
+            found_q = False
+            for q_job_p in sorted(q_folder.glob("*.json")):
+                try:
+                    cjob = json.loads(q_job_p.read_text(encoding="utf-8"))
+                    if cjob.get("job_id") == args.job_id:
+                        job = cjob
+                        found_q = True
+                        break
+                except Exception:
+                    pass
+            if found_q:
+                break
     job["job_id"] = args.job_id
 
     res = harvest_run(
@@ -1663,6 +1679,38 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     sel = res["selected_candidates"]
+    if dirs is not None and sel:
+        archived_any = False
+        for src_q in (dirs["running"], dirs["failed"]):
+            for q_p in sorted(src_q.glob("*.json")):
+                try:
+                    q_data = json.loads(q_p.read_text(encoding="utf-8"))
+                except Exception:
+                    continue
+                if q_data.get("job_id") == args.job_id:
+                    dst_q = dirs["completed"] / q_p.name
+                    if src_q == dirs["running"] or not dst_q.exists():
+                        dst_q.write_text(json.dumps(q_data, indent=2, ensure_ascii=False), encoding="utf-8")
+                    q_p.unlink(missing_ok=True)
+                    archived_any = True
+        manifest_p = run_dir / "run_manifest.json"
+        if manifest_p.exists():
+            try:
+                mf_data = json.loads(manifest_p.read_text(encoding="utf-8"))
+                if mf_data.get("status") in ("INTERRUPTED_RESUMABLE", "RUNNING"):
+                    mf_data["previous_status"] = mf_data.get("status")
+                    mf_data["status"] = "COMPLETED"
+                    mf_data["harvested_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
+                    mf_data["harvested_selected_count"] = len(sel)
+                    manifest_p.write_text(json.dumps(mf_data, indent=2, ensure_ascii=False), encoding="utf-8")
+                    archived_any = True
+            except Exception:
+                pass
+        if archived_any:
+            print(
+                f"📦 [隊列歸檔] 已自動將 {args.job_id} 從 jobs/running/ 歸檔至 jobs/completed/（防止下次運行第 4 格重複續跑消耗 A100 額度）",
+                flush=True,
+            )
     n_clusters = len({b["pose_cluster"] for b in res.get("passing_backbones", [])})
     print(f"\n================ [黃金凹槽骨架採收 v2 完成: {args.job_id}] ================")
     print(f"  通過 3D 凹槽/物理/零碰撞審計骨架數 : {len(res.get('passing_backbones', []))} / {len(res['audited_backbones'])} (共 {n_clusters} 個 3D 姿態簇)")
